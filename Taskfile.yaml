@@ -1,0 +1,63 @@
+version: '3'
+
+tasks:
+  default:
+    desc: List available tasks
+    silent: true
+    cmds:
+      - task --list
+
+  dev:
+    desc: Start Wails development server with hot-reload
+    cmds:
+      - wails dev
+
+  build:
+    desc: Build the application binary
+    cmds:
+      - wails build
+
+  build:prod:
+    desc: Build the application binary (production, with optimizations)
+    cmds:
+      - wails build -clean -upx
+
+  test:
+    desc: Run all Go tests
+    cmds:
+      - go test ./...
+
+  test:verbose:
+    desc: Run all Go tests with verbose output
+    cmds:
+      - go test -v ./...
+
+  lint:
+    desc: Run go vet
+    cmds:
+      - go vet ./...
+
+  fmt:
+    desc: Format all Go source files
+    cmds:
+      - go fmt ./...
+
+  tidy:
+    desc: Tidy and verify go modules
+    cmds:
+      - go mod tidy
+      - go mod verify
+
+  clean:
+    desc: Remove build artifacts
+    cmds:
+      - rm -rf build/bin
+      - rm -rf frontend/dist
+      - rm -rf frontend/node_modules
+
+  check:
+    desc: Run fmt, lint, and test
+    cmds:
+      - task: fmt
+      - task: lint
+      - task: test
