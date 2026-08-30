@@ -8,19 +8,27 @@ tasks:
       - task --list
 
   dev:
-    desc: Start Wails development server with hot-reload
+    desc: Start Wails v3 dev server (Vite + Go app in parallel)
     cmds:
-      - wails dev
+      - npm install --prefix frontend
+      - npm run dev --prefix frontend &
+      - go run .
 
   build:
-    desc: Build the application binary
+    desc: Build the application binary (frontend then Go embed)
     cmds:
-      - wails build
+      - npm install --prefix frontend
+      - npm run build --prefix frontend
+      - mkdir -p build/bin
+      - go build -o build/bin/lumivue .
 
   build:prod:
-    desc: Build the application binary (production, with optimizations)
+    desc: Build the application binary (production, minified frontend)
     cmds:
-      - wails build -clean -upx
+      - npm install --prefix frontend
+      - npm run build --prefix frontend
+      - mkdir -p build/bin
+      - go build -ldflags="-s -w" -o build/bin/lumivue .
 
   test:
     desc: Run all Go tests
