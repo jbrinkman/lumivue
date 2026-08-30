@@ -1,5 +1,17 @@
 version: '3'
 
+vars:
+  MACOS_SDK_VERSION:
+    sh: xcrun --show-sdk-version 2>/dev/null || sw_vers -productVersion
+
+# Set globally so every task that invokes `go` (build, test, vet, run) uses
+# the same deployment target as the installed SDK.  This prevents the linker
+# warning "building for macOS-11.0, but linking with dylib built for 26.x"
+# that otherwise appears whenever CGO-linked dylibs (e.g. Homebrew FFmpeg)
+# target a newer OS than Go's hardcoded 11.0 minimum.
+env:
+  CGO_LDFLAGS: "-mmacosx-version-min={{.MACOS_SDK_VERSION}}"
+
 tasks:
   default:
     desc: List available tasks
