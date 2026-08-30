@@ -16,10 +16,10 @@ import (
 	"time"
 
 	"github.com/asticode/go-astiav"
-	"github.com/bluenviron/gortsplib/v4"
-	"github.com/bluenviron/gortsplib/v4/pkg/base"
-	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/bluenviron/gortsplib/v4/pkg/format/rtph264"
+	"github.com/bluenviron/gortsplib/v5"
+	"github.com/bluenviron/gortsplib/v5/pkg/base"
+	"github.com/bluenviron/gortsplib/v5/pkg/format"
+	"github.com/bluenviron/gortsplib/v5/pkg/format/rtph264"
 	"github.com/pion/rtp"
 )
 
@@ -189,27 +189,16 @@ func (r *RTSPRelay) connect(emitEvent func(name string, data any)) error {
 		return fmt.Errorf("parse rtsp url: %w", err)
 	}
 
+	// In gortsplib v5 the scheme/host are struct fields; Start() takes no args.
 	c := &gortsplib.Client{
+		Scheme:       u.Scheme,
+		Host:         u.Host,
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 5 * time.Second,
 	}
 
-	// Apply 5-second connection timeout.
-	connectCtx, connectCancel := context.WithTimeout(r.ctx, 5*time.Second)
-	defer connectCancel()
-
-	connectDone := make(chan error, 1)
-	go func() {
-		connectDone <- c.Start(u.Scheme, u.Host)
-	}()
-
-	select {
-	case err := <-connectDone:
-		if err != nil {
-			return fmt.Errorf("rtsp connect: %w", err)
-		}
-	case <-connectCtx.Done():
-		return fmt.Errorf("rtsp connect timeout")
+	if err := c.Start(); err != nil {
+		return fmt.Errorf("rtsp connect: %w", err)
 	}
 	defer c.Close()
 

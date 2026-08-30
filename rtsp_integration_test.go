@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v4"
-	"github.com/bluenviron/gortsplib/v4/pkg/base"
-	"github.com/bluenviron/gortsplib/v4/pkg/description"
-	"github.com/bluenviron/gortsplib/v4/pkg/format"
+	"github.com/bluenviron/gortsplib/v5"
+	"github.com/bluenviron/gortsplib/v5/pkg/base"
+	"github.com/bluenviron/gortsplib/v5/pkg/description"
+	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/pion/rtp"
 )
 
@@ -72,7 +72,7 @@ func (h *testRTSPServerHandler) OnPlay(_ *gortsplib.ServerHandlerOnPlayCtx) (*ba
 			}
 			if len(h.idr) == 0 {
 				// Fallback: send a minimal dummy packet and close.
-				_ = h.stream.WritePacketRTP(h.stream.Description().Medias[0], &rtp.Packet{
+				_ = h.stream.WritePacketRTP(h.stream.Desc.Medias[0], &rtp.Packet{
 					Header:  rtp.Header{Version: 2, PayloadType: 96},
 					Payload: []byte{0x01},
 				})
@@ -86,7 +86,7 @@ func (h *testRTSPServerHandler) OnPlay(_ *gortsplib.ServerHandlerOnPlayCtx) (*ba
 			}
 			for range h.numPackets {
 				for _, pkt := range pkts {
-					_ = h.stream.WritePacketRTP(h.stream.Description().Medias[0], pkt)
+					_ = h.stream.WritePacketRTP(h.stream.Desc.Medias[0], pkt)
 				}
 				time.Sleep(10 * time.Millisecond)
 			}
@@ -134,9 +134,15 @@ func startTestRTSPServer(t *testing.T, numPackets int) (addr string, closeFunc f
 		t.Fatalf("RTSP server start: %v", err)
 	}
 
-	handler.stream = gortsplib.NewServerStream(srv, &description.Session{
-		Medias: []*description.Media{med},
-	})
+	// In gortsplib v5 ServerStream is initialised directly (no constructor).
+	handler.stream = &gortsplib.ServerStream{
+		Server: srv,
+		Desc:   &description.Session{Medias: []*description.Media{med}},
+	}
+	if err := handler.stream.Initialize(); err != nil {
+		srv.Close()
+		t.Fatalf("ServerStream.Initialize: %v", err)
+	}
 
 	return rtspAddr, func() {
 		handler.closeOnce.Do(func() { handler.stream.Close() })
@@ -260,9 +266,14 @@ func TestConnect_InvalidNALU(t *testing.T) {
 	if err := srv.Start(); err != nil {
 		t.Fatalf("RTSP server start: %v", err)
 	}
-	handler.stream = gortsplib.NewServerStream(srv, &description.Session{
-		Medias: []*description.Media{med},
-	})
+	handler.stream = &gortsplib.ServerStream{
+		Server: srv,
+		Desc:   &description.Session{Medias: []*description.Media{med}},
+	}
+	if err := handler.stream.Initialize(); err != nil {
+		srv.Close()
+		t.Fatalf("ServerStream.Initialize: %v", err)
+	}
 	defer func() {
 		handler.closeOnce.Do(func() { handler.stream.Close() })
 		srv.Close()
@@ -298,17 +309,24 @@ func TestConnect_NonH264Server(t *testing.T) {
 	}
 	// Opus has a hardcoded 48 kHz clock rate; MPEG4Audio requires explicit
 	// Config so the clock rate is non-zero and the RTCPSender ticker is valid.
-	h.stream = gortsplib.NewServerStream(srv, &description.Session{
-		Medias: []*description.Media{
-			{
-				Type: description.MediaTypeAudio,
-				Formats: []format.Format{&format.Opus{
-					PayloadTyp:   111,
-					ChannelCount: 2,
-				}},
+	h.stream = &gortsplib.ServerStream{
+		Server: srv,
+		Desc: &description.Session{
+			Medias: []*description.Media{
+				{
+					Type: description.MediaTypeAudio,
+					Formats: []format.Format{&format.Opus{
+						PayloadTyp:   111,
+						ChannelCount: 2,
+					}},
+				},
 			},
 		},
-	})
+	}
+	if err := h.stream.Initialize(); err != nil {
+		srv.Close()
+		t.Fatalf("ServerStream.Initialize: %v", err)
+	}
 	defer h.stream.Close()
 	defer srv.Close()
 
