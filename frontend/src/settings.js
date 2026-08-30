@@ -1,7 +1,7 @@
 /**
  * settings.js — Settings panel: USB camera enumeration and RTSP stream config.
  */
-import { GetConfig, SaveConfig, GetUSBCameras } from './bindings.js';
+import { GetConfig, SaveConfig, GetUSBCameras, GetLogPath, RevealLogsInFinder } from './bindings.js';
 
 /**
  * Renders the full settings panel content into #settings-body and wires interactions.
@@ -33,11 +33,16 @@ export async function renderSettings(onConfigChange) {
   const rtspSources = (cfg.sources || []).filter((s) => s.type === 'rtsp');
   const rtspSection = buildRTSPSection(rtspSources);
 
-  body.innerHTML = usbSection + rtspSection;
+  // Build Logs section.
+  let logPath = '';
+  try { logPath = await GetLogPath(); } catch (_) {}
+  const logsSection = buildLogsSection(logPath);
+
+  body.innerHTML = usbSection + rtspSection + logsSection;
 
   // Wire USB rename / remove.
   body.querySelectorAll('[data-action="usb-rename"]').forEach((btn) => {
-    btn.addEventListener('click', () => handleUSBRename(btn.dataset.id, cfg, onConfigChange));
+    btn.addEventListener('click', () => startInlineRename(btn, cfg, onConfigChange));
   });
   body.querySelectorAll('[data-action="usb-remove"]').forEach((btn) => {
     btn.addEventListener('click', () => handleUSBRemove(btn.dataset.id, cfg, onConfigChange));
@@ -70,6 +75,12 @@ export async function renderSettings(onConfigChange) {
   body.querySelectorAll('[data-action="usb-add"]').forEach((btn) => {
     btn.addEventListener('click', () => handleUSBAdd(btn.dataset.label, cfg, onConfigChange));
   });
+
+  // Wire Logs section.
+  const revealBtn = body.querySelector('#logs-reveal-btn');
+  if (revealBtn) {
+    revealBtn.addEventListener('click', () => RevealLogsInFinder().catch(() => {}));
+  }
 }
 
 // ─── USB ──────────────────────────────────────────────────────────────────
@@ -122,12 +133,45 @@ async function handleUSBAdd(name, cfg, onConfigChange) {
   await renderSettings(onConfigChange);
 }
 
-async function handleUSBRename(sourceId, cfg, onConfigChange) {
+// Transforms the source row into an inline edit form.
+// WKWebView (Wails) does not reliably support window.prompt(), so we edit in-place.
+function startInlineRename(btn, cfg, onConfigChange) {
+  const sourceId = btn.dataset.id;
   const sources = cfg.sources || [];
   const src = sources.find((s) => s.id === sourceId);
   if (!src) return;
-  const newName = prompt('Rename camera:', src.name);
-  if (!newName || newName === src.name) return;
+
+  const row = btn.closest('.source-row');
+  const nameDiv = row.querySelector('.source-row-name');
+
+  // Replace static name with an editable input.
+  const originalName = src.name;
+  nameDiv.innerHTML =
+    `<input class="inline-rename-input" type="text" value="${escAttr(originalName)}" />`;
+  const input = nameDiv.querySelector('input');
+  input.focus();
+  input.select();
+
+  // Swap the Rename button for Save, insert Cancel before it.
+  btn.textContent = 'Save';
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'text-btn';
+  cancelBtn.textContent = 'Cancel';
+  row.insertBefore(cancelBtn, btn);
+
+  cancelBtn.addEventListener('click', () => renderSettings(onConfigChange));
+  btn.addEventListener('click', () => commitRename(sourceId, input.value.trim(), cfg, onConfigChange));
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') commitRename(sourceId, input.value.trim(), cfg, onConfigChange);
+    if (e.key === 'Escape') renderSettings(onConfigChange);
+  });
+}
+
+async function commitRename(sourceId, newName, cfg, onConfigChange) {
+  const sources = cfg.sources || [];
+  if (!newName) return;
+  const src = sources.find((s) => s.id === sourceId);
+  if (!src || newName === src.name) { await renderSettings(onConfigChange); return; }
   const newCfg = { ...cfg, sources: sources.map((s) => s.id === sourceId ? { ...s, name: newName } : s) };
   await SaveConfig(newCfg);
   onConfigChange(newCfg);
@@ -236,6 +280,20 @@ async function handleRTSPRemove(sourceId, cfg, onConfigChange) {
   await SaveConfig(newCfg);
   onConfigChange(newCfg);
   await renderSettings(onConfigChange);
+}
+
+// ─── Logs ─────────────────────────────────────────────────────────────────
+
+function buildLogsSection(logPath) {
+  const pathHtml = logPath
+    ? `<div class="source-row-url" style="font-size:11px;color:var(--text-muted);margin-bottom:8px">${esc(logPath)}</div>`
+    : '';
+  return `
+    <div class="settings-section">
+      <div class="settings-section-title">Logs</div>
+      ${pathHtml}
+      <button class="text-btn" id="logs-reveal-btn">Open Log Folder in Finder</button>
+    </div>`;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────

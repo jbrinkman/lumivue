@@ -178,6 +178,32 @@ body {
 .empty-state p { margin: 4px 0; }
 .empty-state .hint { font-size: 12px; }
 
+/* Persistent error panel shown when a source fails to activate. */
+.error-state {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 32px;
+  text-align: center;
+}
+
+.error-state-icon {
+  font-size: 48px;
+  line-height: 1;
+  color: var(--danger);
+}
+
+.error-state-msg {
+  font-size: 14px;
+  color: var(--danger);
+  max-width: 480px;
+  line-height: 1.5;
+}
+
 .status-overlay {
   position: absolute;
   bottom: 16px;
@@ -309,6 +335,17 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.inline-rename-input {
+  width: 100%;
+  background: var(--bg-deep);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 13px;
+  padding: 2px 6px;
+  outline: none;
 }
 
 .source-row-url {

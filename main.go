@@ -12,6 +12,9 @@ import (
 var assets embed.FS
 
 func main() {
+	logCloser := initLogger()
+	defer logCloser.Close()
+
 	appService := NewAppService()
 
 	subFS, err := fs.Sub(assets, "frontend/dist")

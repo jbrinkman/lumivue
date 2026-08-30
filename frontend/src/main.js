@@ -35,6 +35,8 @@ async function initMain() {
   const videoEl = document.getElementById('usb-video');
   const rtspImg = document.getElementById('rtsp-img');
   const emptyEl = document.getElementById('empty-state');
+  const errorEl = document.getElementById('error-state');
+  const errorMsgEl = document.getElementById('error-state-msg');
   const statusEl = document.getElementById('status-overlay');
 
   let cfg = await GetConfig().catch(() => ({ sources: [], lastMonitorIndex: 0 }));
@@ -76,21 +78,21 @@ async function initMain() {
     activeSource = src;
     refreshSidebar();
 
+    showError('');
     showStatus('Connecting…');
     videoEl.classList.remove('active');
     rtspImg.classList.remove('active');
     emptyEl.style.display = 'none';
 
     if (src.type === 'usb') {
-      const deviceId = src.id.replace(/^usb:/, '');
+      const cameraName = src.id.replace(/^usb:/, '');
       try {
-        await playUSBCamera(videoEl, deviceId);
+        await playUSBCamera(videoEl, cameraName);
         videoEl.classList.add('active');
         showStatus('');
       } catch (err) {
-        showStatus(`Camera error: ${err.message}`);
+        showError(`Camera error: ${err.message}`);
         activeSource = null;
-        emptyEl.style.display = 'flex';
         refreshSidebar();
       }
     } else if (src.type === 'rtsp') {
@@ -110,6 +112,7 @@ async function initMain() {
     videoEl.classList.remove('active');
     await stopRTSP(rtspImg, prev.type === 'rtsp' ? prev.id : null).catch(() => {});
     rtspImg.classList.remove('active');
+    showError('');
     emptyEl.style.display = 'flex';
     showStatus('');
     refreshSidebar();
@@ -197,7 +200,7 @@ async function initMain() {
     if (span) span.textContent = '';
   });
 
-  // ── Status overlay ───────────────────────────────────────────────────────
+  // ── Status / error display ───────────────────────────────────────────────
 
   let statusTimeout;
   function showStatus(msg) {
@@ -206,6 +209,19 @@ async function initMain() {
     statusEl.textContent = msg;
     statusEl.classList.toggle('visible', !!msg);
     if (msg) statusTimeout = setTimeout(() => statusEl.classList.remove('visible'), 4000);
+  }
+
+  // Persistent, prominent error shown in the main view area.
+  // Pass an empty string to clear.
+  function showError(msg) {
+    if (!errorEl || !errorMsgEl) return;
+    if (msg) {
+      errorMsgEl.textContent = msg;
+      errorEl.style.display = 'flex';
+      emptyEl.style.display = 'none';
+    } else {
+      errorEl.style.display = 'none';
+    }
   }
 }
 
@@ -225,6 +241,10 @@ function renderAppShell() {
           <div id="empty-state" class="empty-state" style="display:flex;flex-direction:column;align-items:center;justify-content:center">
             <p>No source selected</p>
             <p class="hint">Select a camera or stream from the sidebar</p>
+          </div>
+          <div id="error-state" class="error-state" style="display:none">
+            <div class="error-state-icon">⚠</div>
+            <p id="error-state-msg" class="error-state-msg"></p>
           </div>
           <video id="usb-video" class="video-el" autoplay playsinline muted></video>
           <img id="rtsp-img" class="video-el" alt="" draggable="false" />

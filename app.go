@@ -144,6 +144,22 @@ func (a *AppService) StopRTSPRelay(sourceID string) error {
 	return nil
 }
 
+// ── Logging ────────────────────────────────────────────────────────────────
+
+// GetLogPath returns the absolute path to the application log file.
+func (a *AppService) GetLogPath() (string, error) {
+	return logPath()
+}
+
+// RevealLogsInFinder opens the log directory in macOS Finder.
+func (a *AppService) RevealLogsInFinder() error {
+	path, err := logPath()
+	if err != nil {
+		return err
+	}
+	return exec.Command("open", "-R", path).Run()
+}
+
 // ── USB Cameras ────────────────────────────────────────────────────────────
 
 // spCameraData mirrors the JSON structure returned by

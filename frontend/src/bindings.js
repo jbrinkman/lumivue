@@ -50,3 +50,15 @@ export const StopRTSPRelay = (sourceId) => invoke('StopRTSPRelay', sourceId);
  * @returns {Promise<string[]>}
  */
 export const GetUSBCameras = () => invoke('GetUSBCameras');
+
+/**
+ * Returns the absolute path to the application log file.
+ * @returns {Promise<string>}
+ */
+export const GetLogPath = () => invoke('GetLogPath');
+
+/**
+ * Opens the log directory in macOS Finder.
+ * @returns {Promise<void>}
+ */
+export const RevealLogsInFinder = () => invoke('RevealLogsInFinder');
