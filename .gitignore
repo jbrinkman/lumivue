@@ -1,3 +1,9 @@
 build/bin
 frontend/dist
 frontend/node_modules
+
+# Go test coverage profiles
+*.out
+
+# Root-level binary produced by bare `go build .`
+/lumivue
