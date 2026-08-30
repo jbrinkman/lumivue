@@ -1,8 +1,7 @@
 /**
  * settings.js — Settings panel: USB camera enumeration and RTSP stream config.
  */
-import { enumerateUSBCameras } from './camera.js';
-import { GetConfig, SaveConfig } from './bindings.js';
+import { GetConfig, SaveConfig, GetUSBCameras } from './bindings.js';
 
 /**
  * Renders the full settings panel content into #settings-body and wires interactions.
@@ -17,7 +16,9 @@ export async function renderSettings(onConfigChange) {
 
   let cfg, usbDevices;
   try {
-    [cfg, usbDevices] = await Promise.all([GetConfig(), enumerateUSBCameras()]);
+    // GetUSBCameras() enumerates via system_profiler on the Go side —
+    // no browser camera permission is required to list cameras.
+    [cfg, usbDevices] = await Promise.all([GetConfig(), GetUSBCameras()]);
   } catch (err) {
     const msg = err?.message || (typeof err === 'string' ? err : JSON.stringify(err)) || 'backend unavailable';
     body.innerHTML = `<p style="color:var(--danger);padding:8px">Failed to load settings: ${msg}</p>`;
@@ -67,37 +68,36 @@ export async function renderSettings(onConfigChange) {
 
   // Wire USB "Add detected camera" buttons.
   body.querySelectorAll('[data-action="usb-add"]').forEach((btn) => {
-    btn.addEventListener('click', () => handleUSBAdd(btn.dataset.id, btn.dataset.label, cfg, onConfigChange));
+    btn.addEventListener('click', () => handleUSBAdd(btn.dataset.label, cfg, onConfigChange));
   });
 }
 
 // ─── USB ──────────────────────────────────────────────────────────────────
 
+// usbDevices is string[] — camera names returned by GetUSBCameras() (Go/system_profiler).
+// Cameras are identified by name; the deviceId is resolved at play-time.
 function buildUSBSection(usbDevices, savedUSB) {
-  const savedIds = new Set(savedUSB.map((s) => s.id));
+  const savedNames = new Set(savedUSB.map((s) => s.name));
 
   const savedRows = savedUSB.map((s) => `
     <div class="source-row">
       <div class="source-row-info">
         <div class="source-row-name">${esc(s.name)}</div>
-        <div class="source-row-url" style="font-size:11px;color:var(--text-muted)">${esc(s.id)}</div>
       </div>
       <button class="text-btn" data-action="usb-rename" data-id="${escAttr(s.id)}">Rename</button>
       <button class="text-btn danger" data-action="usb-remove" data-id="${escAttr(s.id)}">Remove</button>
     </div>`).join('');
 
   const detectedRows = usbDevices
-    .filter((d) => !savedIds.has(d.deviceId))
-    .map((d) => `
+    .filter((name) => !savedNames.has(name))
+    .map((name) => `
       <div class="source-row">
         <div class="source-row-info">
-          <div class="source-row-name">${esc(d.label || 'Unnamed Camera')}</div>
-          <div class="source-row-url">${esc(d.deviceId)}</div>
+          <div class="source-row-name">${esc(name)}</div>
         </div>
         <button class="text-btn"
             data-action="usb-add"
-            data-id="${escAttr(d.deviceId)}"
-            data-label="${escAttr(d.label || 'Unnamed Camera')}">Add</button>
+            data-label="${escAttr(name)}">Add</button>
       </div>`).join('');
 
   const noneMsg = !savedRows && !detectedRows
@@ -111,12 +111,13 @@ function buildUSBSection(usbDevices, savedUSB) {
     </div>`;
 }
 
-async function handleUSBAdd(deviceId, label, cfg, onConfigChange) {
-  const id = `usb:${deviceId}`;
+// Cameras are identified by name (resolved to a deviceId at play-time via enumerateDevices).
+async function handleUSBAdd(name, cfg, onConfigChange) {
+  const id = `usb:${name}`;
   if (cfg.sources.some((s) => s.id === id)) return;
   const newCfg = {
     ...cfg,
-    sources: [...cfg.sources, { id, type: 'usb', name: label || 'USB Camera', isDefault: false }],
+    sources: [...cfg.sources, { id, type: 'usb', name, isDefault: false }],
   };
   await SaveConfig(newCfg);
   onConfigChange(newCfg);

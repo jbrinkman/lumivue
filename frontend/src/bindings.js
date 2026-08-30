@@ -43,3 +43,10 @@ export const StartRTSPRelay = (sourceId) => invoke('StartRTSPRelay', sourceId);
  * @param {string} sourceId
  */
 export const StopRTSPRelay = (sourceId) => invoke('StopRTSPRelay', sourceId);
+
+/**
+ * Returns the names of all cameras visible to macOS (via system_profiler).
+ * Does NOT require camera permission — enumeration is done on the Go side.
+ * @returns {Promise<string[]>}
+ */
+export const GetUSBCameras = () => invoke('GetUSBCameras');

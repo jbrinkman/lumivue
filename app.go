@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os/exec"
 	"sync"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -140,6 +142,37 @@ func (a *AppService) StopRTSPRelay(sourceID string) error {
 	relay.Stop()
 	delete(a.relays, sourceID)
 	return nil
+}
+
+// ── USB Cameras ────────────────────────────────────────────────────────────
+
+// spCameraData mirrors the JSON structure returned by
+// `system_profiler SPCameraDataType -json`.
+type spCameraData struct {
+	SPCameraDataType []struct {
+		Name string `json:"_name"`
+	} `json:"SPCameraDataType"`
+}
+
+// GetUSBCameras returns the names of all cameras visible to macOS using
+// system_profiler.  This does not require camera permission from the OS,
+// so it works even before the user has granted access in System Settings.
+func (a *AppService) GetUSBCameras() ([]string, error) {
+	out, err := exec.Command("system_profiler", "SPCameraDataType", "-json").Output()
+	if err != nil {
+		return nil, fmt.Errorf("list cameras: %w", err)
+	}
+	var data spCameraData
+	if err := json.Unmarshal(out, &data); err != nil {
+		return nil, fmt.Errorf("parse camera list: %w", err)
+	}
+	names := make([]string, 0, len(data.SPCameraDataType))
+	for _, c := range data.SPCameraDataType {
+		if c.Name != "" {
+			names = append(names, c.Name)
+		}
+	}
+	return names, nil
 }
 
 // ── Monitor & Projection ───────────────────────────────────────────────────
