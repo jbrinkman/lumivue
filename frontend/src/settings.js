@@ -114,25 +114,21 @@ function buildUSBSection(usbDevices, savedUSB) {
 // Cameras are identified by name (resolved to a deviceId at play-time via enumerateDevices).
 async function handleUSBAdd(name, cfg, onConfigChange) {
   const id = `usb:${name}`;
-  if (cfg.sources.some((s) => s.id === id)) return;
-  const newCfg = {
-    ...cfg,
-    sources: [...cfg.sources, { id, type: 'usb', name, isDefault: false }],
-  };
+  const sources = cfg.sources || [];
+  if (sources.some((s) => s.id === id)) return;
+  const newCfg = { ...cfg, sources: [...sources, { id, type: 'usb', name, isDefault: false }] };
   await SaveConfig(newCfg);
   onConfigChange(newCfg);
   await renderSettings(onConfigChange);
 }
 
 async function handleUSBRename(sourceId, cfg, onConfigChange) {
-  const src = cfg.sources.find((s) => s.id === sourceId);
+  const sources = cfg.sources || [];
+  const src = sources.find((s) => s.id === sourceId);
   if (!src) return;
   const newName = prompt('Rename camera:', src.name);
   if (!newName || newName === src.name) return;
-  const newCfg = {
-    ...cfg,
-    sources: cfg.sources.map((s) => s.id === sourceId ? { ...s, name: newName } : s),
-  };
+  const newCfg = { ...cfg, sources: sources.map((s) => s.id === sourceId ? { ...s, name: newName } : s) };
   await SaveConfig(newCfg);
   onConfigChange(newCfg);
   await renderSettings(onConfigChange);
@@ -140,7 +136,7 @@ async function handleUSBRename(sourceId, cfg, onConfigChange) {
 
 async function handleUSBRemove(sourceId, cfg, onConfigChange) {
   if (!confirm('Remove this camera from the list?')) return;
-  const newCfg = { ...cfg, sources: cfg.sources.filter((s) => s.id !== sourceId) };
+  const newCfg = { ...cfg, sources: (cfg.sources || []).filter((s) => s.id !== sourceId) };
   await SaveConfig(newCfg);
   onConfigChange(newCfg);
   await renderSettings(onConfigChange);
@@ -204,7 +200,8 @@ async function handleRTSPAdd(cfg, onConfigChange) {
   }
 
   const id = `rtsp:${url}`;
-  if (cfg.sources.some((s) => s.id === id)) {
+  const sources = cfg.sources || [];
+  if (sources.some((s) => s.id === id)) {
     if (errEl) {
       errEl.textContent = 'A stream with this URL already exists.';
       errEl.classList.remove('hidden');
@@ -214,7 +211,7 @@ async function handleRTSPAdd(cfg, onConfigChange) {
 
   const newCfg = {
     ...cfg,
-    sources: [...cfg.sources, { id, type: 'rtsp', name, url, isDefault: false }],
+    sources: [...sources, { id, type: 'rtsp', name, url, isDefault: false }],
   };
   await SaveConfig(newCfg);
   onConfigChange(newCfg);
@@ -222,14 +219,12 @@ async function handleRTSPAdd(cfg, onConfigChange) {
 }
 
 async function handleRTSPEdit(sourceId, cfg, onConfigChange) {
-  const src = cfg.sources.find((s) => s.id === sourceId);
+  const rtspSources = cfg.sources || [];
+  const src = rtspSources.find((s) => s.id === sourceId);
   if (!src) return;
   const newName = prompt('Edit stream name:', src.name);
   if (!newName || newName === src.name) return;
-  const newCfg = {
-    ...cfg,
-    sources: cfg.sources.map((s) => s.id === sourceId ? { ...s, name: newName } : s),
-  };
+  const newCfg = { ...cfg, sources: rtspSources.map((s) => s.id === sourceId ? { ...s, name: newName } : s) };
   await SaveConfig(newCfg);
   onConfigChange(newCfg);
   await renderSettings(onConfigChange);
@@ -237,7 +232,7 @@ async function handleRTSPEdit(sourceId, cfg, onConfigChange) {
 
 async function handleRTSPRemove(sourceId, cfg, onConfigChange) {
   if (!confirm('Remove this RTSP stream?')) return;
-  const newCfg = { ...cfg, sources: cfg.sources.filter((s) => s.id !== sourceId) };
+  const newCfg = { ...cfg, sources: (cfg.sources || []).filter((s) => s.id !== sourceId) };
   await SaveConfig(newCfg);
   onConfigChange(newCfg);
   await renderSettings(onConfigChange);
