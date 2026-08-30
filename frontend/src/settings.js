@@ -15,7 +15,14 @@ export async function renderSettings(onConfigChange) {
 
   body.innerHTML = '<p style="color:var(--text-muted)">Loading…</p>';
 
-  const [cfg, usbDevices] = await Promise.all([GetConfig(), enumerateUSBCameras()]);
+  let cfg, usbDevices;
+  try {
+    [cfg, usbDevices] = await Promise.all([GetConfig(), enumerateUSBCameras()]);
+  } catch (err) {
+    const msg = err?.message || (typeof err === 'string' ? err : JSON.stringify(err)) || 'backend unavailable';
+    body.innerHTML = `<p style="color:var(--danger);padding:8px">Failed to load settings: ${msg}</p>`;
+    return;
+  }
 
   // Build USB section: devices detected by the browser, cross-referenced with saved sources.
   const usbSources = (cfg.sources || []).filter((s) => s.type === 'usb');

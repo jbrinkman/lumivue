@@ -4,7 +4,9 @@
  */
 import { Call } from '@wailsio/runtime';
 
-const PKG = 'github.com/jbrinkman/lumivue.AppService';
+// Wails v3 registers services using the Go package path from reflection.
+// For types in `package main`, reflect.PkgPath() returns "main", not the module path.
+const PKG = 'main.AppService';
 // Call is a namespace; ByName(methodName, ...args) is the callable helper.
 const invoke = (method, ...args) => Call.ByName(`${PKG}.${method}`, ...args);
 

@@ -8,6 +8,7 @@
  * @returns {Promise<MediaDeviceInfo[]>}
  */
 export async function enumerateUSBCameras() {
+  if (!navigator.mediaDevices) return [];
   // Some browsers only return labels after permission is granted.
   // We ask for a temporary stream and immediately stop it.
   try {
@@ -16,8 +17,12 @@ export async function enumerateUSBCameras() {
   } catch (_) {
     // Permission denied or no camera — continue with empty labels.
   }
-  const devices = await navigator.mediaDevices.enumerateDevices();
-  return devices.filter((d) => d.kind === 'videoinput');
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    return devices.filter((d) => d.kind === 'videoinput');
+  } catch (_) {
+    return [];
+  }
 }
 
 /**

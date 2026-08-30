@@ -37,7 +37,7 @@ async function initMain() {
   const emptyEl = document.getElementById('empty-state');
   const statusEl = document.getElementById('status-overlay');
 
-  let cfg = await GetConfig();
+  let cfg = await GetConfig().catch(() => ({ sources: [], lastMonitorIndex: 0 }));
   let activeSource = null;
   let isProjecting = false;
 
