@@ -42,7 +42,7 @@ func main() {
 		Mac: application.MacWindow{
 			Backdrop:                application.MacBackdropTranslucent,
 			TitleBar:                application.MacTitleBarHiddenInset,
-			InvisibleTitleBarHeight: 28,
+			InvisibleTitleBarHeight: 44,
 		},
 	})
 

@@ -15,7 +15,11 @@
   --success:    #55c478;
   --radius:     8px;
   --sidebar-w:  220px;
-  --titlebar-h: 36px;
+  --titlebar-h: 44px;
+  /* Width reserved for macOS traffic lights (close/minimise/zoom) when
+     using MacTitleBarHiddenInset.  The buttons sit at ≈76 px from the
+     left edge; content must start to the right of this. */
+  --traffic-lights-w: 76px;
   --footer-h:   48px;
   --transition: 140ms ease;
 }
@@ -37,11 +41,14 @@ body {
 }
 
 .titlebar {
-  display: flex;
+  /* 3-column grid: [traffic-lights gutter] [centred title] [action buttons]
+     The left column is intentionally empty — it clears the macOS
+     close/minimise/zoom buttons that are inset into the content area. */
+  display: grid;
+  grid-template-columns: var(--traffic-lights-w) 1fr auto;
   align-items: center;
-  justify-content: space-between;
   height: var(--titlebar-h);
-  padding: 0 12px;
+  padding-right: 12px;
   background: var(--bg-panel);
   border-bottom: 1px solid var(--border);
   -webkit-app-region: drag;
@@ -49,11 +56,13 @@ body {
 }
 
 .titlebar-title {
+  grid-column: 2;
+  text-align: center;
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.04em;
   color: var(--text-muted);
-  -webkit-app-region: drag;
+  /* title is part of the drag area */
 }
 
 .titlebar .icon-btn { -webkit-app-region: no-drag; }
@@ -310,9 +319,9 @@ body {
   border: none;
   color: var(--text-muted);
   cursor: pointer;
-  padding: 4px 6px;
-  border-radius: 4px;
-  font-size: 16px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 20px;
   line-height: 1;
   transition: color var(--transition), background var(--transition);
 }
