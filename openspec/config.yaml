@@ -1,32 +1,26 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+context: |
+  Tech stack: Go 1.26 + Wails v2 desktop app, vanilla JS / Vite frontend (no UI framework).
+  Build and task runner: Taskfile (use `task <name>`).
+  Key commands: `task fmt` (format), `task lint` (vet), `task test` (tests), `task check` (fmt+lint+test), `task build` (binary).
+  Config storage: OS user-config dir via os.UserConfigDir() — ~/Library/Application Support/lumivue/ on macOS.
+  Go module: github.com/jbrinkman/lumivue. Wails v2.15.
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+rules:
+  tasks:
+    - Every task must be independently verifiable — the developer can confirm it is done without completing subsequent tasks.
+    - Each task should represent a coherent unit of work completable in a single focused session (roughly 1–3 hours).
+    - Tasks that add application logic must explicitly include writing the corresponding tests as part of that task, not as a separate follow-up task.
 
-# Per-operation guidance (optional)
-# Add advisory guidance for how apply and archive work should be conducted.
-# This is separate from artifact rules above.
-# Example:
-#   operations:
-#     apply:
-#       guidance:
-#         - Keep test summaries concise
-#     archive:
-#       guidance:
-#         - Summarize the archive outcome before finishing
+operations:
+  apply:
+    guidance:
+      - Run `task check` after completing each numbered task group (##-level section). Do not mark any task in that group complete if `task check` fails — fix all failures first, including pre-existing ones.
+      - Run `task build` after completing each numbered task group to confirm the application compiles and links without errors.
+      - Warnings from the Go compiler, go vet, or the linter are treated as errors. Do not mark a task complete while any warning is present in the output of `task check`.
+      - New application logic must be accompanied by tests in the same task. Verify coverage with `go test -cover ./...` before marking the task done. Coverage must be at or above 80% for packages touched by the task.
+      - Do not move on to the next task group until the current group's tasks are all marked complete and `task check` passes cleanly.
+      - After each task group passes `task check` and `task build`, create a commit following conventional commit format (see AGENTS.md). The description must be lowercase, imperative mood, and must not end with a period. Each commit must represent one logical change.
+      - Go errors must be wrapped with context using fmt.Errorf and the %w verb. Never silently swallow an error — every error must be returned, logged with context, or explicitly handled with a documented reason for discarding it.
+      - Only implement what the current task explicitly requires. Do not add abstractions, helpers, or features in anticipation of future tasks.
