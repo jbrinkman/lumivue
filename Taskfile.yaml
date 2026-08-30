@@ -20,10 +20,10 @@ tasks:
       - task --list
 
   dev:
-    desc: Start Wails v3 dev server (Vite + Go app in parallel)
+    desc: Build frontend then run Go app (embeds current frontend/dist)
     cmds:
       - npm install --prefix frontend
-      - npm run dev --prefix frontend &
+      - npm run build --prefix frontend
       - go run .
 
   build:

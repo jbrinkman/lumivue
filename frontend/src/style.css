@@ -65,7 +65,11 @@ body {
   /* title is part of the drag area */
 }
 
-.titlebar .icon-btn { -webkit-app-region: no-drag; }
+.titlebar .icon-btn {
+  -webkit-app-region: no-drag;
+  font-size: 22px;
+  padding: 6px 10px;
+}
 
 .content-row {
   display: flex;
@@ -249,11 +253,14 @@ body {
 .settings-panel.hidden { display: none; }
 
 .settings-header {
-  display: flex;
+  /* Same 3-column grid as .titlebar: traffic-lights gutter / centred title / close button.
+     The settings panel is position:fixed and covers the full window, so the
+     macOS traffic-light buttons still appear at the top-left corner here. */
+  display: grid;
+  grid-template-columns: var(--traffic-lights-w) 1fr auto;
   align-items: center;
-  gap: 12px;
   height: var(--titlebar-h);
-  padding: 0 12px;
+  padding-right: 12px;
   background: var(--bg-panel);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
@@ -261,6 +268,8 @@ body {
 }
 
 .settings-header h2 {
+  grid-column: 2;
+  text-align: center;
   font-size: 14px;
   font-weight: 600;
   -webkit-app-region: drag;

@@ -241,8 +241,8 @@ function renderAppShell() {
 
     <div id="settings-panel" class="settings-panel hidden">
       <div class="settings-header">
-        <button id="settings-close" class="icon-btn" title="Back">←</button>
         <h2>Settings</h2>
+        <button id="settings-close" class="icon-btn" title="Close">✕</button>
       </div>
       <div class="settings-body" id="settings-body"></div>
     </div>`;
