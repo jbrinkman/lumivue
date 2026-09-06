@@ -45,15 +45,15 @@ export async function renderSettings(onConfigChange) {
     btn.addEventListener('click', () => startInlineRename(btn, cfg, onConfigChange));
   });
   body.querySelectorAll('[data-action="usb-remove"]').forEach((btn) => {
-    btn.addEventListener('click', () => handleUSBRemove(btn.dataset.id, cfg, onConfigChange));
+    btn.addEventListener('click', () => handleUSBRemove(btn, cfg, onConfigChange));
   });
 
   // Wire RTSP edit / remove.
   body.querySelectorAll('[data-action="rtsp-edit"]').forEach((btn) => {
-    btn.addEventListener('click', () => handleRTSPEdit(btn.dataset.id, cfg, onConfigChange));
+    btn.addEventListener('click', () => startInlineRename(btn, cfg, onConfigChange));
   });
   body.querySelectorAll('[data-action="rtsp-remove"]').forEach((btn) => {
-    btn.addEventListener('click', () => handleRTSPRemove(btn.dataset.id, cfg, onConfigChange));
+    btn.addEventListener('click', () => handleRTSPRemove(btn, cfg, onConfigChange));
   });
 
   // Wire RTSP add form.
@@ -178,12 +178,49 @@ async function commitRename(sourceId, newName, cfg, onConfigChange) {
   await renderSettings(onConfigChange);
 }
 
-async function handleUSBRemove(sourceId, cfg, onConfigChange) {
-  if (!confirm('Remove this camera from the list?')) return;
-  const newCfg = { ...cfg, sources: (cfg.sources || []).filter((s) => s.id !== sourceId) };
-  await SaveConfig(newCfg);
-  onConfigChange(newCfg);
-  await renderSettings(onConfigChange);
+function showRemoveConfirm(row, source, cfg, onConfigChange) {
+  const label = source.name || source.url || 'this source';
+  row.innerHTML = `
+    <div class="source-row-info">
+      <div class="source-row-name remove-confirm-text">Remove ${esc(label)}?</div>
+    </div>
+    <button class="text-btn danger confirm-btn">Confirm</button>
+    <button class="text-btn cancel-btn">Cancel</button>
+  `;
+
+  const confirmBtn = row.querySelector('.confirm-btn');
+  const cancelBtn = row.querySelector('.cancel-btn');
+  let confirming = false;
+
+  confirmBtn.addEventListener('click', async () => {
+    if (confirming) return;
+    confirming = true;
+    confirmBtn.disabled = true;
+    confirmBtn.style.opacity = '0.6';
+    try {
+      const newCfg = { ...cfg, sources: (cfg.sources || []).filter((s) => s.id !== source.id) };
+      await SaveConfig(newCfg);
+      onConfigChange(newCfg);
+      await renderSettings(onConfigChange);
+    } catch (err) {
+      confirming = false;
+      confirmBtn.disabled = false;
+      confirmBtn.style.opacity = '';
+    }
+  });
+
+  cancelBtn.addEventListener('click', async () => {
+    await renderSettings(onConfigChange);
+  });
+}
+
+async function handleUSBRemove(btn, cfg, onConfigChange) {
+  const sourceId = btn.dataset.id;
+  const source = (cfg.sources || []).find((s) => s.id === sourceId);
+  if (!source) return;
+  const row = btn.closest('.source-row');
+  if (!row) return;
+  showRemoveConfirm(row, source, cfg, onConfigChange);
 }
 
 // ─── RTSP ─────────────────────────────────────────────────────────────────
@@ -262,24 +299,13 @@ async function handleRTSPAdd(cfg, onConfigChange) {
   await renderSettings(onConfigChange);
 }
 
-async function handleRTSPEdit(sourceId, cfg, onConfigChange) {
-  const rtspSources = cfg.sources || [];
-  const src = rtspSources.find((s) => s.id === sourceId);
-  if (!src) return;
-  const newName = prompt('Edit stream name:', src.name);
-  if (!newName || newName === src.name) return;
-  const newCfg = { ...cfg, sources: rtspSources.map((s) => s.id === sourceId ? { ...s, name: newName } : s) };
-  await SaveConfig(newCfg);
-  onConfigChange(newCfg);
-  await renderSettings(onConfigChange);
-}
-
-async function handleRTSPRemove(sourceId, cfg, onConfigChange) {
-  if (!confirm('Remove this RTSP stream?')) return;
-  const newCfg = { ...cfg, sources: (cfg.sources || []).filter((s) => s.id !== sourceId) };
-  await SaveConfig(newCfg);
-  onConfigChange(newCfg);
-  await renderSettings(onConfigChange);
+async function handleRTSPRemove(btn, cfg, onConfigChange) {
+  const sourceId = btn.dataset.id;
+  const source = (cfg.sources || []).find((s) => s.id === sourceId);
+  if (!source) return;
+  const row = btn.closest('.source-row');
+  if (!row) return;
+  showRemoveConfirm(row, source, cfg, onConfigChange);
 }
 
 // ─── Logs ─────────────────────────────────────────────────────────────────
