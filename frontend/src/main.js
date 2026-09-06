@@ -32,7 +32,7 @@ if (params.get('mode') === 'projection') {
 async function initMain() {
   renderAppShell();
 
-  const videoEl = document.getElementById('usb-video');
+  const usbImg = document.getElementById('usb-img');
   const rtspImg = document.getElementById('rtsp-img');
   const emptyEl = document.getElementById('empty-state');
   const errorEl = document.getElementById('error-state');
@@ -81,17 +81,16 @@ async function initMain() {
 
     showError('');
     showStatus('Connecting…');
-    videoEl.classList.remove('active');
+    usbImg.classList.remove('active');
     rtspImg.classList.remove('active');
     emptyEl.style.display = 'none';
 
     if (src.type === 'usb') {
-      const cameraName = src.id.replace(/^usb:/, '');
       try {
-        await playUSBCamera(videoEl, cameraName);
-        videoEl.classList.add('active');
-        showStatus('');
+        usbImg.classList.add('active');
+        await playUSBCamera(usbImg, src.id, src.name, onUSBCameraStatus);
       } catch (err) {
+        usbImg.classList.remove('active');
         const { title, hint } = getCameraErrorMessage(err);
         showError({ title, hint });
         activeSource = null;
@@ -110,8 +109,8 @@ async function initMain() {
     if (!activeSource) return;
     const prev = activeSource;
     activeSource = null;
-    stopUSBCamera(videoEl);
-    videoEl.classList.remove('active');
+    await stopUSBCamera(usbImg, prev.type === 'usb' ? prev.id : null).catch(() => {});
+    usbImg.classList.remove('active');
     await stopRTSP(rtspImg, prev.type === 'rtsp' ? prev.id : null).catch(() => {});
     rtspImg.classList.remove('active');
     showError('');
@@ -204,6 +203,18 @@ async function initMain() {
 
   // ── Status / error display ───────────────────────────────────────────────
 
+  function onUSBCameraStatus(msg) {
+    if (!msg) {
+      showStatus('');
+      return;
+    }
+    if (msg.startsWith('USB error:') || msg.startsWith('USB stream error')) {
+      showError({ title: 'USB camera error', hint: msg.replace(/^USB error:\s*/, '') });
+    } else {
+      showStatus(msg);
+    }
+  }
+
   let statusTimeout;
   function showStatus(msg) {
     if (!statusEl) return;
@@ -259,7 +270,7 @@ function renderAppShell() {
             <p id="error-state-msg" class="error-state-msg"></p>
             <p id="error-state-hint" class="error-state-hint" style="display:none"></p>
           </div>
-          <video id="usb-video" class="video-el" autoplay playsinline muted></video>
+          <img id="usb-img" class="video-el" alt="" draggable="false" />
           <img id="rtsp-img" class="video-el" alt="" draggable="false" />
           <div id="status-overlay" class="status-overlay"></div>
         </main>

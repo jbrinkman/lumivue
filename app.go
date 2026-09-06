@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os/exec"
 	"sync"
 
@@ -162,6 +163,7 @@ func (a *AppService) StartUSBCamera(sourceID string) (int, error) {
 		}
 	}
 	if src == nil {
+		log.Printf("StartUSBCamera: source %q not found or not a USB source", sourceID)
 		return 0, fmt.Errorf("USB source %q not found", sourceID)
 	}
 
@@ -177,13 +179,16 @@ func (a *AppService) StartUSBCamera(sourceID string) (int, error) {
 	a.usbRelays[sourceID] = relay
 	a.mu.Unlock()
 
+	log.Printf("StartUSBCamera: starting relay for %q camera %q", sourceID, src.Name)
 	port, err := relay.Start(a.emitEvent)
 	if err != nil {
+		log.Printf("StartUSBCamera: relay failed for %q: %v", sourceID, err)
 		a.mu.Lock()
 		delete(a.usbRelays, sourceID)
 		a.mu.Unlock()
 		return 0, fmt.Errorf("start USB camera for %q: %w", sourceID, err)
 	}
+	log.Printf("StartUSBCamera: relay for %q listening on port %d", sourceID, port)
 	return port, nil
 }
 
@@ -198,6 +203,7 @@ func (a *AppService) StopUSBCamera(sourceID string) error {
 	if !ok {
 		return nil // already stopped; not an error
 	}
+	log.Printf("StopUSBCamera: stopping relay for %q", sourceID)
 	relay.Stop()
 	delete(a.usbRelays, sourceID)
 	return nil

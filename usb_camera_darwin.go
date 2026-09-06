@@ -3,79 +3,12 @@
 
 package main
 
-/*
-#cgo CFLAGS: -I/opt/homebrew/opt/ffmpeg/include
-#include <libavdevice/avdevice.h>
-#include <libavformat/avformat.h>
-#include <stdlib.h>
-#include <string.h>
-
-typedef struct {
-    int index;
-    char *name;
-    char *description;
-} device_info;
-
-int list_avfoundation_devices(device_info **out, int *count) {
-    avdevice_register_all();
-
-    AVInputFormat *fmt = (AVInputFormat *)av_find_input_format("avfoundation");
-    if (!fmt) {
-        return AVERROR(ENOSYS);
-    }
-
-    AVFormatContext *ctx = avformat_alloc_context();
-    if (!ctx) {
-        return AVERROR(ENOMEM);
-    }
-
-    ctx->iformat = (AVInputFormat *)fmt;
-
-    AVDeviceInfoList *list = NULL;
-    int ret = avdevice_list_devices(ctx, &list);
-    if (ret < 0) {
-        avformat_free_context(ctx);
-        return ret;
-    }
-
-    int n = list->nb_devices;
-    if (n > 0) {
-        *out = (device_info *)malloc(sizeof(device_info) * n);
-        if (!*out) {
-            avdevice_free_list_devices(&list);
-            avformat_free_context(ctx);
-            return AVERROR(ENOMEM);
-        }
-        for (int i = 0; i < n; i++) {
-            AVDeviceInfo *dev = list->devices[i];
-            (*out)[i].index = i;
-            (*out)[i].name = dev->device_name ? strdup(dev->device_name) : NULL;
-            (*out)[i].description = dev->device_description ? strdup(dev->device_description) : NULL;
-        }
-    } else {
-        *out = NULL;
-    }
-
-    *count = n;
-    avdevice_free_list_devices(&list);
-    avformat_free_context(ctx);
-    return 0;
-}
-
-void free_device_infos(device_info *devs, int count) {
-    if (!devs) return;
-    for (int i = 0; i < count; i++) {
-        free(devs[i].name);
-        free(devs[i].description);
-    }
-    free(devs);
-}
-*/
-import "C"
-
 import (
 	"fmt"
-	"unsafe"
+	"regexp"
+	"strconv"
+	"strings"
+	"sync"
 
 	"github.com/asticode/go-astiav"
 )
@@ -129,39 +62,72 @@ func openAVFoundationDevice(deviceIndex int) (*astiav.FormatContext, *astiav.Str
 	return formatCtx, stream, nil
 }
 
+// listDevices uses the avfoundation input format's list_devices option. The
+// device list is emitted through the FFmpeg log callback, so we temporarily
+// install a callback, call OpenInput with list_devices=1, and parse the
+// resulting log lines. avdevice_list_devices is not implemented for avfoundation.
 func (l *avfDeviceLister) listDevices() ([]usbCameraDevice, error) {
-	var cDevs *C.device_info
-	var cCount C.int
+	astiav.RegisterAllDevices()
 
-	ret := C.list_avfoundation_devices(&cDevs, &cCount)
-	if ret < 0 {
-		return nil, fmt.Errorf("list AVFoundation devices: %w", astiav.Error(ret))
+	inputFormat := astiav.FindInputFormat("avfoundation")
+	if inputFormat == nil {
+		return nil, fmt.Errorf("avfoundation input format not available")
 	}
-	defer C.free_device_infos(cDevs, cCount)
 
-	count := int(cCount)
-	if count == 0 {
+	var logs []string
+	var mu sync.Mutex
+	astiav.SetLogCallback(func(_ astiav.Classer, _ astiav.LogLevel, _, msg string) {
+		mu.Lock()
+		logs = append(logs, msg)
+		mu.Unlock()
+	})
+	defer astiav.ResetLogCallback()
+
+	formatCtx := astiav.AllocFormatContext()
+	if formatCtx == nil {
+		return nil, fmt.Errorf("alloc format context")
+	}
+	defer formatCtx.Free()
+
+	dict := astiav.NewDictionary()
+	defer dict.Free()
+	_ = dict.Set("list_devices", "1", astiav.DictionaryFlags(0))
+
+	// list_devices always fails after printing the device list; ignore the error.
+	_ = formatCtx.OpenInput("", inputFormat, dict)
+
+	out := parseAVFoundationDeviceList(logs)
+	if len(out) == 0 {
 		return nil, nil
 	}
-
-	devs := (*[1 << 20]C.device_info)(unsafe.Pointer(cDevs))[:count:count]
-	out := make([]usbCameraDevice, 0, count)
-	for _, d := range devs {
-		name := ""
-		if d.description != nil {
-			name = C.GoString(d.description)
-		} else if d.name != nil {
-			name = C.GoString(d.name)
-		}
-		uid := ""
-		if d.name != nil {
-			uid = C.GoString(d.name)
-		}
-		out = append(out, usbCameraDevice{
-			Index: int(d.index),
-			Name:  name,
-			UID:   uid,
-		})
-	}
 	return out, nil
+}
+
+// parseAVFoundationDeviceList parses the log output produced by avfoundation's
+// list_devices option into usbCameraDevice entries.
+func parseAVFoundationDeviceList(logs []string) []usbCameraDevice {
+	re := regexp.MustCompile(`\[(\d+)\]\s+(.+)`)
+	out := make([]usbCameraDevice, 0)
+	for _, line := range logs {
+		for _, m := range re.FindAllStringSubmatch(line, -1) {
+			idx, err := strconv.Atoi(m[1])
+			if err != nil {
+				continue
+			}
+			name := strings.TrimSpace(m[2])
+			if name == "" {
+				continue
+			}
+			// AVFoundation also exposes screen-capture "devices"; skip them.
+			if strings.Contains(strings.ToLower(name), "capture screen") {
+				continue
+			}
+			out = append(out, usbCameraDevice{
+				Index: idx,
+				Name:  name,
+				UID:   name,
+			})
+		}
+	}
+	return out
 }

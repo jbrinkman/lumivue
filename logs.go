@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"log"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -42,11 +43,13 @@ func initLogger() io.Closer {
 		return io.NopCloser(nil)
 	}
 
-	// Write JSON logs to the file; keep default text logs on stderr.
+	// Write JSON logs to the file and plain text logs to both stderr and the file.
 	multi := io.MultiWriter(os.Stderr, f)
 	slog.SetDefault(slog.New(slog.NewJSONHandler(multi, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	})))
+	log.SetOutput(multi)
+	log.SetFlags(log.LstdFlags)
 
 	slog.Info("log file opened", "path", path)
 	return f

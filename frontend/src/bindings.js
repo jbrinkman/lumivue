@@ -52,6 +52,19 @@ export const StopRTSPRelay = (sourceId) => invoke('StopRTSPRelay', sourceId);
 export const GetUSBCameras = () => invoke('GetUSBCameras');
 
 /**
+ * Starts an AVFoundation→MJPEG relay for the given USB source ID.
+ * @param {string} sourceId
+ * @returns {Promise<number>} localhost port for the MJPEG stream
+ */
+export const StartUSBCamera = (sourceId) => invoke('StartUSBCamera', sourceId);
+
+/**
+ * Stops the USB camera relay for the given source ID.
+ * @param {string} sourceId
+ */
+export const StopUSBCamera = (sourceId) => invoke('StopUSBCamera', sourceId);
+
+/**
  * Returns the absolute path to the application log file.
  * @returns {Promise<string>}
  */

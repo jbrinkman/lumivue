@@ -2,7 +2,7 @@
  * projection.js — Projection window mode (/?mode=projection).
  *
  * The projection window receives its active-source information via Wails events
- * from the main window. It renders the same video/MJPEG feed fullscreen.
+ * from the main window. It renders the same MJPEG feed fullscreen.
  */
 import { Events } from '@wailsio/runtime';
 import { StopProjection } from './bindings.js';
@@ -16,13 +16,13 @@ import { playRTSP, stopRTSP } from './rtsp.js';
 export function initProjection() {
   document.getElementById('root').innerHTML = `
     <div class="projection-app">
-      <video id="proj-video" autoplay playsinline muted style="display:none"></video>
+      <img id="proj-usb-img" alt="" draggable="false" style="display:none" />
       <img id="proj-img" alt="" draggable="false" style="display:none" />
       <div id="proj-empty" style="color:#555;font-size:18px;white-space:pre-line;text-align:center">Waiting for source…</div>
     </div>`;
 
-  const videoEl = document.getElementById('proj-video');
-  const imgEl = document.getElementById('proj-img');
+  const usbImg = document.getElementById('proj-usb-img');
+  const rtspImg = document.getElementById('proj-img');
   const emptyEl = document.getElementById('proj-empty');
 
   let activeSourceId = null;
@@ -40,38 +40,45 @@ export function initProjection() {
 
     // Stop previous.
     if (activeSourceId) {
-      stopUSBCamera(videoEl);
-      await stopRTSP(imgEl, activeSourceId).catch(() => {});
+      await stopUSBCamera(usbImg, activeSourceId).catch(() => {});
+      await stopRTSP(rtspImg, activeSourceId).catch(() => {});
     }
     activeSourceId = src.id;
 
-    videoEl.style.display = 'none';
-    imgEl.style.display = 'none';
+    usbImg.style.display = 'none';
+    rtspImg.style.display = 'none';
     emptyEl.style.display = 'block';
+    emptyEl.textContent = 'Waiting for source…';
 
     if (src.type === 'usb') {
-      // deviceId is encoded as usb:<deviceId>
-      const deviceId = src.id.replace(/^usb:/, '');
       try {
-        await playUSBCamera(videoEl, deviceId);
-        videoEl.style.display = 'block';
-        emptyEl.style.display = 'none';
+        await playUSBCamera(usbImg, src.id, src.name, (msg) => {
+          if (msg) {
+            emptyEl.textContent = msg.replace(/^USB error:\s*/, '');
+            emptyEl.style.display = 'block';
+            usbImg.style.display = 'none';
+          } else {
+            emptyEl.style.display = 'none';
+            usbImg.style.display = 'block';
+          }
+        });
       } catch (err) {
         const { title, hint } = getCameraErrorMessage(err);
         emptyEl.textContent = hint ? `${title}\n${hint}` : title;
         emptyEl.style.display = 'block';
+        usbImg.style.display = 'none';
       }
     } else if (src.type === 'rtsp') {
-      imgEl.style.display = 'block';
+      rtspImg.style.display = 'block';
       emptyEl.style.display = 'none';
-      await playRTSP(imgEl, src.id, (msg) => {
+      await playRTSP(rtspImg, src.id, (msg) => {
         if (msg) {
           emptyEl.textContent = msg;
           emptyEl.style.display = 'block';
-          imgEl.style.display = 'none';
+          rtspImg.style.display = 'none';
         } else {
           emptyEl.style.display = 'none';
-          imgEl.style.display = 'block';
+          rtspImg.style.display = 'block';
         }
       });
     }

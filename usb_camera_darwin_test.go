@@ -9,6 +9,27 @@ import (
 	"github.com/asticode/go-astiav"
 )
 
+func TestParseAVFoundationDeviceList(t *testing.T) {
+	logs := []string{
+		"[AVFoundation indev @ 0x0] AVFoundation video devices:",
+		"[AVFoundation indev @ 0x0] [0] FaceTime HD Camera",
+		"[AVFoundation indev @ 0x0] [1] USB Camera",
+		"[AVFoundation indev @ 0x0] [2] Capture screen 0",
+		"[AVFoundation indev @ 0x0] AVFoundation audio devices:",
+	}
+
+	devs := parseAVFoundationDeviceList(logs)
+	if len(devs) != 2 {
+		t.Fatalf("expected 2 devices, got %d", len(devs))
+	}
+	if devs[0].Index != 0 || devs[0].Name != "FaceTime HD Camera" {
+		t.Errorf("unexpected first device: %+v", devs[0])
+	}
+	if devs[1].Index != 1 || devs[1].Name != "USB Camera" {
+		t.Errorf("unexpected second device: %+v", devs[1])
+	}
+}
+
 func TestAvfDeviceLister_ListDevices(t *testing.T) {
 	l := &avfDeviceLister{}
 	devs, err := l.listDevices()

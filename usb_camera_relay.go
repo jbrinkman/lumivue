@@ -63,10 +63,12 @@ func newUSBCameraRelay(sourceID, cameraName string) *USBCameraRelay {
 func (r *USBCameraRelay) Start(emitEvent func(name string, data any)) (int, error) {
 	devs, err := defaultDeviceLister.listDevices()
 	if err != nil {
+		log.Printf("usb camera list devices error (source=%s): %v", r.sourceID, err)
 		return 0, fmt.Errorf("list USB cameras: %w", err)
 	}
 	idx, err := resolveUSBCamera(r.cameraName, devs)
 	if err != nil {
+		log.Printf("usb camera resolve error (source=%s, camera=%q): %v", r.sourceID, r.cameraName, err)
 		return 0, fmt.Errorf("resolve camera %q: %w", r.cameraName, err)
 	}
 
@@ -175,6 +177,7 @@ func (r *USBCameraRelay) serveMJPEG(w http.ResponseWriter, req *http.Request) {
 // relay context is cancelled or a fatal error occurs.
 func (r *USBCameraRelay) capture(deviceIndex int, emitEvent func(name string, data any)) {
 	if err := r.captureLoop(deviceIndex, emitEvent); err != nil {
+		log.Printf("usb camera capture error (source=%s): %v", r.sourceID, err)
 		r.emitError(err, emitEvent)
 	}
 }
@@ -372,6 +375,7 @@ func (r *USBCameraRelay) emitError(err error, emitEvent func(name string, data a
 	if errors.Is(r.ctx.Err(), context.Canceled) {
 		return
 	}
+	log.Printf("usb camera emitError (source=%s): %v", r.sourceID, err)
 	msg := err.Error()
 	switch {
 	case errors.Is(err, astiav.ErrEperm),
