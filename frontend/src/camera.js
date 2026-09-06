@@ -7,6 +7,56 @@
  */
 
 /**
+ * Categorized error produced when a USB camera cannot be played.
+ *
+ * @property {'api-unavailable'|'permission-denied'|'device-not-found'|'unknown'} category
+ * @property {string} cameraName
+ * @property {string} originalMessage
+ */
+export class CameraError extends Error {
+  constructor(category, cameraName, originalMessage = '') {
+    super(originalMessage);
+    this.category = category;
+    this.cameraName = cameraName;
+    this.originalMessage = originalMessage;
+  }
+}
+
+/**
+ * Returns a user-facing title and hint for a CameraError.
+ *
+ * @param {CameraError} err
+ * @returns {{title: string, hint: string}}
+ */
+export function getCameraErrorMessage(err) {
+  const cameraName = err?.cameraName || '';
+  const name = cameraName ? `"${cameraName}"` : 'camera';
+  switch (err?.category) {
+    case 'api-unavailable':
+      return {
+        title: 'Camera playback is not available in this view.',
+        hint: 'A native implementation is required to enable USB camera access.',
+      };
+    case 'permission-denied':
+      return {
+        title: 'Camera permission was denied.',
+        hint: 'Grant camera access to Lumivue in System Settings.',
+      };
+    case 'device-not-found':
+      return {
+        title: `Camera ${name} was not found.`,
+        hint: 'Make sure it is still connected.',
+      };
+    case 'unknown':
+    default:
+      return {
+        title: `Could not start camera ${name}.`,
+        hint: 'Check the application logs for details.',
+      };
+  }
+}
+
+/**
  * Starts the USB camera stream for the device whose label matches `cameraName`
  * and attaches it to the provided <video> element.
  *
@@ -24,34 +74,71 @@ export async function playUSBCamera(videoEl, cameraName) {
   stopUSBCamera(videoEl);
 
   if (!navigator.mediaDevices) {
-    throw new Error('Camera access is not available in this context.');
+    throw new CameraError(
+      'api-unavailable',
+      cameraName,
+      'Camera access is not available in this context.',
+    );
   }
 
   // Step 1: ensure camera permission (triggers macOS dialog on first use).
+  let tmpStream;
   try {
-    const tmp = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-    tmp.getTracks().forEach((t) => t.stop());
+    tmpStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    tmpStream.getTracks().forEach((t) => t.stop());
   } catch (err) {
-    throw new Error(`Camera permission denied: ${err.message}`);
+    const isPermission =
+      err.name === 'NotAllowedError' ||
+      err.name === 'PermissionDeniedError' ||
+      /permission/i.test(err.message || '');
+    throw new CameraError(
+      isPermission ? 'permission-denied' : 'unknown',
+      cameraName,
+      `Camera permission denied: ${err.message}`,
+    );
   }
 
   // Step 2: find the deviceId for the requested camera by label.
-  const devices = await navigator.mediaDevices.enumerateDevices();
+  let devices;
+  try {
+    devices = await navigator.mediaDevices.enumerateDevices();
+  } catch (err) {
+    throw new CameraError(
+      'unknown',
+      cameraName,
+      `Failed to enumerate cameras: ${err.message}`,
+    );
+  }
+
   const device = devices.find((d) => d.kind === 'videoinput' && d.label === cameraName);
   if (!device) {
-    throw new Error(
-      `Camera "${cameraName}" was not found. It may have been disconnected or its name changed.`
+    throw new CameraError(
+      'device-not-found',
+      cameraName,
+      `Camera "${cameraName}" was not found. It may have been disconnected or its name changed.`,
     );
   }
 
   // Step 3: open the specific camera.
-  const stream = await navigator.mediaDevices.getUserMedia({
-    video: { deviceId: { exact: device.deviceId } },
-    audio: false,
-  });
-  videoEl.srcObject = stream;
-  await videoEl.play().catch(() => {});
-  return stream;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { deviceId: { exact: device.deviceId } },
+      audio: false,
+    });
+    videoEl.srcObject = stream;
+    await videoEl.play().catch(() => {});
+    return stream;
+  } catch (err) {
+    const isPermission =
+      err.name === 'NotAllowedError' ||
+      err.name === 'PermissionDeniedError' ||
+      /permission/i.test(err.message || '');
+    throw new CameraError(
+      isPermission ? 'permission-denied' : 'unknown',
+      cameraName,
+      `Failed to open camera: ${err.message}`,
+    );
+  }
 }
 
 /**

@@ -6,7 +6,7 @@
  */
 import { Events } from '@wailsio/runtime';
 import { StopProjection } from './bindings.js';
-import { playUSBCamera, stopUSBCamera } from './camera.js';
+import { playUSBCamera, stopUSBCamera, getCameraErrorMessage } from './camera.js';
 import { playRTSP, stopRTSP } from './rtsp.js';
 
 /**
@@ -18,7 +18,7 @@ export function initProjection() {
     <div class="projection-app">
       <video id="proj-video" autoplay playsinline muted style="display:none"></video>
       <img id="proj-img" alt="" draggable="false" style="display:none" />
-      <div id="proj-empty" style="color:#555;font-size:18px">Waiting for source…</div>
+      <div id="proj-empty" style="color:#555;font-size:18px;white-space:pre-line;text-align:center">Waiting for source…</div>
     </div>`;
 
   const videoEl = document.getElementById('proj-video');
@@ -57,7 +57,8 @@ export function initProjection() {
         videoEl.style.display = 'block';
         emptyEl.style.display = 'none';
       } catch (err) {
-        emptyEl.textContent = `Camera error: ${err.message}`;
+        const { title, hint } = getCameraErrorMessage(err);
+        emptyEl.textContent = hint ? `${title}\n${hint}` : title;
         emptyEl.style.display = 'block';
       }
     } else if (src.type === 'rtsp') {

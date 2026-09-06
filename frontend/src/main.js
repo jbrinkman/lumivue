@@ -14,7 +14,7 @@ import {
 } from './bindings.js';
 import { renderSidebar } from './sidebar.js';
 import { renderSettings } from './settings.js';
-import { playUSBCamera, stopUSBCamera } from './camera.js';
+import { playUSBCamera, stopUSBCamera, getCameraErrorMessage } from './camera.js';
 import { playRTSP, stopRTSP } from './rtsp.js';
 import { initProjection } from './projection.js';
 
@@ -37,6 +37,7 @@ async function initMain() {
   const emptyEl = document.getElementById('empty-state');
   const errorEl = document.getElementById('error-state');
   const errorMsgEl = document.getElementById('error-state-msg');
+  const errorHintEl = document.getElementById('error-state-hint');
   const statusEl = document.getElementById('status-overlay');
 
   let cfg = await GetConfig().catch(() => ({ sources: [], lastMonitorIndex: 0 }));
@@ -91,7 +92,8 @@ async function initMain() {
         videoEl.classList.add('active');
         showStatus('');
       } catch (err) {
-        showError(`Camera error: ${err.message}`);
+        const { title, hint } = getCameraErrorMessage(err);
+        showError({ title, hint });
         activeSource = null;
         refreshSidebar();
       }
@@ -212,16 +214,26 @@ async function initMain() {
   }
 
   // Persistent, prominent error shown in the main view area.
-  // Pass an empty string to clear.
+  // Pass an empty string or falsy value to clear; pass { title, hint } for
+  // a categorized camera error with a secondary explanation line.
   function showError(msg) {
     if (!errorEl || !errorMsgEl) return;
-    if (msg) {
-      errorMsgEl.textContent = msg;
-      errorEl.style.display = 'flex';
-      emptyEl.style.display = 'none';
-    } else {
+    if (!msg) {
       errorEl.style.display = 'none';
+      return;
     }
+    if (typeof msg === 'string') {
+      errorMsgEl.textContent = msg;
+      if (errorHintEl) errorHintEl.style.display = 'none';
+    } else {
+      errorMsgEl.textContent = msg.title;
+      if (errorHintEl) {
+        errorHintEl.textContent = msg.hint;
+        errorHintEl.style.display = 'block';
+      }
+    }
+    errorEl.style.display = 'flex';
+    emptyEl.style.display = 'none';
   }
 }
 
@@ -245,6 +257,7 @@ function renderAppShell() {
           <div id="error-state" class="error-state" style="display:none">
             <div class="error-state-icon">⚠</div>
             <p id="error-state-msg" class="error-state-msg"></p>
+            <p id="error-state-hint" class="error-state-hint" style="display:none"></p>
           </div>
           <video id="usb-video" class="video-el" autoplay playsinline muted></video>
           <img id="rtsp-img" class="video-el" alt="" draggable="false" />
