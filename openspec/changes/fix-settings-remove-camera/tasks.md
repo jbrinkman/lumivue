@@ -12,6 +12,6 @@
 
 ## 3. Styling and regression testing
 
-- [ ] 3.1 Add minimal CSS to `frontend/src/style.css` for the inline confirmation and rename states (e.g., danger color for Confirm, spacing for the button group) and confirm the panel renders correctly.
-- [ ] 3.2 Run `task check` (fmt, lint, tests) and `task build` to ensure no Go or frontend build regressions.
+- [x] 3.1 Add minimal CSS to `frontend/src/style.css` for the inline confirmation and rename states (e.g., danger color for Confirm, spacing for the button group) and confirm the panel renders correctly.
+- [x] 3.2 Run `task check` (fmt, lint, tests) and `task build` to ensure no Go or frontend build regressions.
 - [ ] 3.3 Manual verification: add a USB camera, click Remove, confirm, cancel, and remove a default source; confirm the source list is persisted after reopening the settings panel and that the app does not try to start a removed source.

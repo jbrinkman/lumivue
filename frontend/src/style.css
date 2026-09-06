@@ -396,6 +396,11 @@ body {
 .text-btn:hover { background: var(--bg-active); }
 .text-btn.danger { color: var(--danger); border-color: var(--danger); }
 .text-btn.danger:hover { background: rgba(224,85,85,0.1); }
+.text-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.remove-confirm-text { color: var(--danger); }
+
+.source-row .inline-rename-input { margin-right: 4px; }
 
 .add-form {
   background: var(--bg-item);
