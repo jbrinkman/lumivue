@@ -233,6 +233,11 @@ func (r *USBCameraRelay) captureLoop(deviceIndex int, emitEvent func(name string
 			if errors.Is(err, astiav.ErrEof) || errors.Is(r.ctx.Err(), context.Canceled) {
 				return nil
 			}
+			if errors.Is(err, astiav.ErrEagain) {
+				// Live capture devices frequently return EAGAIN between frames.
+				time.Sleep(20 * time.Millisecond)
+				continue
+			}
 			return fmt.Errorf("read frame: %w", err)
 		}
 
