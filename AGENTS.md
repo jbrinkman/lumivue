@@ -17,6 +17,12 @@ Build commands are managed via Taskfile (`task`). See `Taskfile.yaml` for all av
 
 ## Testing Requirements
 
+- **Use test-driven development (red-green-refactor) for all code changes.**
+  1. Write a failing test that expresses the required behavior before writing the production code (red).
+  2. Implement the smallest amount of production code that makes the test pass (green).
+  3. Refactor the implementation while keeping the test suite passing.
+  4. Only then commit.
+- **No production code may be committed without a corresponding test**, unless the change is purely presentational, configuration-only, or documentation with no observable logic.
 - **`task check` must pass before every commit** — no exceptions. This runs fmt, lint, and all tests.
 - **No task may be marked complete while `task check` is failing.** Keep working until all checks pass, even if the failure was pre-existing before the current work began. We do not defer or skip pre-existing failures.
 - **The application must build and run without errors after every commit.** Verify with `task build` when in doubt.
