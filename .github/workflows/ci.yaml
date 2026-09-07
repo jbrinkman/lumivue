@@ -21,6 +21,7 @@ jobs:
 
       - name: Install FFmpeg 8
         run: |
+          brew update
           brew install ffmpeg@8
           echo "$(brew --prefix ffmpeg@8)/bin" >> "$GITHUB_PATH"
           echo "PKG_CONFIG_PATH=$(brew --prefix ffmpeg@8)/lib/pkgconfig" >> "$GITHUB_ENV"
@@ -61,6 +62,7 @@ jobs:
 
       - name: Install FFmpeg 8
         run: |
+          brew update
           brew install ffmpeg@8
           echo "$(brew --prefix ffmpeg@8)/bin" >> "$GITHUB_PATH"
           echo "PKG_CONFIG_PATH=$(brew --prefix ffmpeg@8)/lib/pkgconfig" >> "$GITHUB_ENV"

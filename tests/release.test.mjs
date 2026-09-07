@@ -75,6 +75,7 @@ test('workflow actions use maintained Node 24 action majors', async () => {
   const testJob = ci.slice(ci.indexOf('  test:'), ci.indexOf('  build:'));
   assert.match(testJob, /runs-on: macos-15/);
   assert.equal([...ci.matchAll(/runs-on: macos-15/g)].length, 2);
+  assert.equal([...ci.matchAll(/brew update/g)].length, 2);
   assert.equal([...ci.matchAll(/brew install ffmpeg@8/g)].length, 2);
   assert.equal([...ci.matchAll(/PKG_CONFIG_PATH/g)].length, 2);
   assert.ok(testJob.indexOf('brew install ffmpeg@8') < testJob.indexOf('go vet'));
