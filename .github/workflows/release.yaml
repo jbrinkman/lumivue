@@ -1,0 +1,54 @@
+name: Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Release macOS
+    runs-on: macos-15
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            frontend/package-lock.json
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.16
+
+      - name: Install release dependencies
+        run: npm ci
+
+      - name: Verify application
+        run: task check
+
+      - name: Verify release tooling
+        run: npm run test:release
+
+      - name: Release
+        run: npm run release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

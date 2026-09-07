@@ -4,25 +4,27 @@
         <key>CFBundlePackageType</key>
         <string>APPL</string>
         <key>CFBundleName</key>
-        <string>{{.Info.ProductName}}</string>
+        <string>Lumivue</string>
         <key>CFBundleExecutable</key>
-        <string>{{.OutputFilename}}</string>
+        <string>lumivue</string>
         <key>CFBundleIdentifier</key>
-        <string>com.wails.{{safeBundleID .Name}}</string>
+        <string>com.jbrinkman.lumivue</string>
         <key>CFBundleVersion</key>
-        <string>{{.Info.ProductVersion}}</string>
+        <string>0.0.0</string>
         <key>CFBundleGetInfoString</key>
-        <string>{{.Info.Comments}}</string>
+        <string>Built using Wails</string>
         <key>CFBundleShortVersionString</key>
-        <string>{{.Info.ProductVersion}}</string>
+        <string>0.0.0</string>
         <key>CFBundleIconFile</key>
-        <string>iconfile</string>
+        <string>icons</string>
+        <key>CFBundleIconName</key>
+        <string>appicon</string>
         <key>LSMinimumSystemVersion</key>
-        <string>10.13.0</string>
+        <string>12.0.0</string>
         <key>NSHighResolutionCapable</key>
-        <string>true</string>
+        <true/>
         <key>NSHumanReadableCopyright</key>
-        <string>{{.Info.Copyright}}</string>
+        <string>Copyright 2026, Joseph Brinkman</string>
         <key>NSCameraUsageDescription</key>
         <string>Lumivue requires camera access to display live video feeds.</string>
         <key>NSAppTransportSecurity</key>
@@ -30,41 +32,5 @@
             <key>NSAllowsLocalNetworking</key>
             <true/>
         </dict>
-        {{if .Info.FileAssociations}}
-        <key>CFBundleDocumentTypes</key>
-        <array>
-          {{range .Info.FileAssociations}}
-          <dict>
-            <key>CFBundleTypeExtensions</key>
-            <array>
-              <string>{{.Ext}}</string>
-            </array>
-            <key>CFBundleTypeName</key>
-            <string>{{.Name}}</string>
-            <key>CFBundleTypeRole</key>
-            <string>{{.Role}}</string>
-            <key>CFBundleTypeIconFile</key>
-            <string>{{.IconName}}</string>
-          </dict>
-          {{end}}
-        </array>
-        {{end}}
-        {{if .Info.Protocols}}
-        <key>CFBundleURLTypes</key>
-        <array>
-          {{range .Info.Protocols}}
-            <dict>
-                <key>CFBundleURLName</key>
-                <string>com.wails.{{.Scheme}}</string>
-                <key>CFBundleURLSchemes</key>
-                <array>
-                    <string>{{.Scheme}}</string>
-                </array>
-                <key>CFBundleTypeRole</key>
-                <string>{{.Role}}</string>
-            </dict>
-          {{end}}
-        </array>
-        {{end}}
     </dict>
 </plist>

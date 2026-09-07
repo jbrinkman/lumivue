@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Lumivue is a Go + Wails v2 desktop application with a vanilla JS / Vite frontend (no UI framework).
+Lumivue is a Go + Wails v3.0.0-beta.16 desktop application with a vanilla JS / Vite frontend (no UI framework).
 Build commands are managed via Taskfile (`task`). See `Taskfile.yaml` for all available tasks.
 
 ## Verification Commands
