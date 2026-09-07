@@ -68,9 +68,12 @@ test('workflow actions use maintained Node 24 action majors', async () => {
   const workflows = `${await read('.github/workflows/ci.yaml')}\n${await read('.github/workflows/release.yaml')}`;
   const references = [...workflows.matchAll(/uses: (actions\/(?:checkout|setup-go|setup-node))@(v\d+)/g)];
 
-  assert.equal(references.length, 8);
-  assert.equal([...workflows.matchAll(/node-version: '24'/g)].length, 2);
+  assert.equal(references.length, 9);
+  assert.equal([...workflows.matchAll(/node-version: '24'/g)].length, 3);
   assert.doesNotMatch(workflows, /node-version: '20'/);
+  const ci = await read('.github/workflows/ci.yaml');
+  const testJob = ci.slice(ci.indexOf('  test:'), ci.indexOf('  build:'));
+  assert.ok(testJob.indexOf('npm run build') < testJob.indexOf('go vet'));
   for (const [, action, version] of references) {
     assert.equal(version, 'v7', `${action} must use its Node 24 v7 release`);
   }
