@@ -17,15 +17,16 @@ export function renderSidebar(sources, activeId, onSelect, onSetDefault) {
 
   const items = sources.map((src) => {
     const icon = src.type === 'usb' ? '📷' : '📡';
+    const label = src.displayName || src.name;
     const activeClass = src.id === activeId ? ' active' : '';
     const defaultClass = src.isDefault ? ' is-default' : '';
     return `
       <div class="source-item${activeClass}${defaultClass}"
            data-id="${escapeAttr(src.id)}"
            tabindex="0"
-           title="${escapeAttr(src.name)}">
+           title="${escapeAttr(label)}">
         <span class="source-icon">${icon}</span>
-        <span class="source-name">${escapeHtml(src.name)}</span>
+        <span class="source-name">${escapeHtml(label)}</span>
         <span class="source-default-dot" title="Default source"></span>
       </div>`;
   }).join('');

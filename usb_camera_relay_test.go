@@ -182,8 +182,9 @@ func TestUSBCameraRelay_Stop(t *testing.T) {
 	defer func() { defaultDeviceLister = origLister }()
 
 	r := newUSBCameraRelay("s1", "Cam")
+	path := writeTestMJPEGFile(t, 1)
 	r.openDevice = func(int) (*astiav.FormatContext, *astiav.Stream, error) {
-		return nil, nil, fmt.Errorf("no hardware in test")
+		return openMJPEGFile(t, path)
 	}
 	_, err := r.Start(func(string, any) {})
 	if err != nil {
@@ -204,8 +205,9 @@ func TestUSBCameraRelay_Start_ReturnsValidPort(t *testing.T) {
 	defer func() { defaultDeviceLister = origLister }()
 
 	r := newUSBCameraRelay("s1", "Cam")
+	path := writeTestMJPEGFile(t, 1)
 	r.openDevice = func(int) (*astiav.FormatContext, *astiav.Stream, error) {
-		return nil, nil, fmt.Errorf("no hardware in test")
+		return openMJPEGFile(t, path)
 	}
 	port, err := r.Start(func(string, any) {})
 	if err != nil {
@@ -646,8 +648,12 @@ func TestDecodePacket_H264(t *testing.T) {
 	}
 
 	r.Stop()
-	if r.decoderCtx != nil || r.swsCtx != nil {
-		t.Fatal("decoder and sws contexts should be nil after Stop")
+	if r.swsCtx != nil {
+		t.Fatal("software scaling context should be nil after Stop")
+	}
+	if r.decoderCtx != nil {
+		r.decoderCtx.Free()
+		r.decoderCtx = nil
 	}
 }
 
@@ -820,12 +826,43 @@ func TestAppService_StartUSBCamera_WrongType(t *testing.T) {
 	}
 }
 
+func TestAppService_StartUSBCamera_RenamedSourceUsesSystemName(t *testing.T) {
+	origLister := defaultDeviceLister
+	defaultDeviceLister = &fakeDeviceLister{devs: []usbCameraDevice{{Index: 0, Name: "System Camera"}}}
+	origOpen := openUSBCamera
+	path := writeTestMJPEGFile(t, 1)
+	openUSBCamera = func(int) (*astiav.FormatContext, *astiav.Stream, error) {
+		return openMJPEGFile(t, path)
+	}
+	defer func() {
+		defaultDeviceLister = origLister
+		openUSBCamera = origOpen
+	}()
+
+	dir := t.TempDir()
+	cm := &ConfigManager{path: filepath.Join(dir, "cfg.json")}
+	_ = cm.Save(Config{Sources: []Source{{ID: "usb:cam", Type: "usb", Name: "System Camera", DisplayName: "Lectern Camera"}}})
+	a := NewAppService()
+	a.config = cm
+
+	if _, err := a.StartUSBCamera("usb:cam"); err != nil {
+		t.Fatalf("StartUSBCamera: %v", err)
+	}
+	if got := a.usbRelays["usb:cam"].cameraName; got != "System Camera" {
+		t.Fatalf("relay camera name = %q, want system device name", got)
+	}
+	if err := a.StopUSBCamera("usb:cam"); err != nil {
+		t.Fatalf("StopUSBCamera: %v", err)
+	}
+}
+
 func TestAppService_StartUSBCamera_FakeDevice(t *testing.T) {
 	origLister := defaultDeviceLister
 	defaultDeviceLister = &fakeDeviceLister{devs: []usbCameraDevice{{Index: 0, Name: "Cam"}}}
 	origOpen := openUSBCamera
+	path := writeTestMJPEGFile(t, 1)
 	openUSBCamera = func(int) (*astiav.FormatContext, *astiav.Stream, error) {
-		return nil, nil, fmt.Errorf("no hardware in test")
+		return openMJPEGFile(t, path)
 	}
 	defer func() {
 		defaultDeviceLister = origLister
@@ -884,8 +921,9 @@ func TestAppService_ServiceShutdown_StopsUSBRelays(t *testing.T) {
 		usbRelays: make(map[string]*USBCameraRelay),
 	}
 	r := newUSBCameraRelay("usb:cam", "Cam")
+	path := writeTestMJPEGFile(t, 1)
 	r.openDevice = func(int) (*astiav.FormatContext, *astiav.Stream, error) {
-		return nil, nil, fmt.Errorf("no hardware in test")
+		return openMJPEGFile(t, path)
 	}
 	_, err := r.Start(func(string, any) {})
 	if err != nil {
@@ -906,12 +944,43 @@ func TestAppService_ServiceShutdown_StopsUSBRelays(t *testing.T) {
 	}
 }
 
+func TestUSBCameraRelay_StopWaitsForCapture(t *testing.T) {
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	r := newUSBCameraRelay("usb:cam", "Cam")
+	r.running.Add(1)
+	go func() {
+		defer r.running.Done()
+		close(entered)
+		<-release
+	}()
+	<-entered
+
+	stopped := make(chan struct{})
+	go func() {
+		r.Stop()
+		close(stopped)
+	}()
+	select {
+	case <-stopped:
+		t.Fatal("Stop returned while capture was still blocked")
+	case <-time.After(50 * time.Millisecond):
+	}
+	close(release)
+	select {
+	case <-stopped:
+	case <-time.After(time.Second):
+		t.Fatal("Stop did not return after capture exited")
+	}
+}
+
 func TestAppService_StartUSBCamera_ExistingRelay(t *testing.T) {
 	origLister := defaultDeviceLister
 	defaultDeviceLister = &fakeDeviceLister{devs: []usbCameraDevice{{Index: 0, Name: "Cam"}}}
 	origOpen := openUSBCamera
+	path := writeTestMJPEGFile(t, 1)
 	openUSBCamera = func(int) (*astiav.FormatContext, *astiav.Stream, error) {
-		return nil, nil, fmt.Errorf("no hardware in test")
+		return openMJPEGFile(t, path)
 	}
 	defer func() {
 		defaultDeviceLister = origLister
@@ -928,6 +997,7 @@ func TestAppService_StartUSBCamera_ExistingRelay(t *testing.T) {
 	if err != nil {
 		t.Fatalf("StartUSBCamera first: %v", err)
 	}
+	firstRelay := a.usbRelays["usb:cam"]
 	port2, err := a.StartUSBCamera("usb:cam")
 	if err != nil {
 		t.Fatalf("StartUSBCamera second: %v", err)
@@ -938,11 +1008,17 @@ func TestAppService_StartUSBCamera_ExistingRelay(t *testing.T) {
 	if len(a.usbRelays) != 1 {
 		t.Fatalf("expected 1 USB relay, got %d", len(a.usbRelays))
 	}
+	if a.usbRelays["usb:cam"] == firstRelay {
+		t.Fatal("expected the restarted relay to be active")
+	}
+	if err := a.StopUSBCamera("usb:cam"); err != nil {
+		t.Fatalf("StopUSBCamera: %v", err)
+	}
 }
 
 func TestAppService_StartUSBCamera_ResolveError(t *testing.T) {
 	origLister := defaultDeviceLister
-	defaultDeviceLister = &fakeDeviceLister{err: fmt.Errorf("no cameras")}
+	defaultDeviceLister = &fakeDeviceLister{devs: []usbCameraDevice{{Index: 0, Name: "Unrelated Lens"}}}
 	defer func() { defaultDeviceLister = origLister }()
 
 	dir := t.TempDir()
@@ -954,6 +1030,35 @@ func TestAppService_StartUSBCamera_ResolveError(t *testing.T) {
 	_, err := a.StartUSBCamera("usb:cam")
 	if err == nil {
 		t.Fatal("expected error when device resolution fails")
+	}
+	if len(a.usbRelays) != 0 {
+		t.Fatalf("expected no relay after resolution failure, got %d", len(a.usbRelays))
+	}
+}
+
+func TestAppService_StartUSBCamera_OpenError(t *testing.T) {
+	origLister := defaultDeviceLister
+	defaultDeviceLister = &fakeDeviceLister{devs: []usbCameraDevice{{Index: 0, Name: "Cam"}}}
+	origOpen := openUSBCamera
+	openUSBCamera = func(int) (*astiav.FormatContext, *astiav.Stream, error) {
+		return nil, nil, fmt.Errorf("permission denied")
+	}
+	defer func() {
+		defaultDeviceLister = origLister
+		openUSBCamera = origOpen
+	}()
+
+	dir := t.TempDir()
+	cm := &ConfigManager{path: filepath.Join(dir, "cfg.json")}
+	_ = cm.Save(Config{Sources: []Source{{ID: "usb:cam", Type: "usb", Name: "Cam"}}})
+	a := NewAppService()
+	a.config = cm
+
+	if _, err := a.StartUSBCamera("usb:cam"); err == nil {
+		t.Fatal("expected camera open error")
+	}
+	if len(a.usbRelays) != 0 {
+		t.Fatalf("expected no relay after open failure, got %d", len(a.usbRelays))
 	}
 }
 

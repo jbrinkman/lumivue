@@ -167,7 +167,13 @@ func (a *AppService) StartUSBCamera(sourceID string) (int, error) {
 		return 0, fmt.Errorf("USB source %q not found", sourceID)
 	}
 
+	displayName := src.DisplayName
+	if displayName == "" {
+		displayName = src.Name
+	}
+
 	a.mu.Lock()
+	defer a.mu.Unlock()
 	if a.usbRelays == nil {
 		a.usbRelays = make(map[string]*USBCameraRelay)
 	}
@@ -177,15 +183,12 @@ func (a *AppService) StartUSBCamera(sourceID string) (int, error) {
 	}
 	relay := newUSBCameraRelay(sourceID, src.Name)
 	a.usbRelays[sourceID] = relay
-	a.mu.Unlock()
 
-	log.Printf("StartUSBCamera: starting relay for %q camera %q", sourceID, src.Name)
+	log.Printf("StartUSBCamera: starting relay for %q camera %q", sourceID, displayName)
 	port, err := relay.Start(a.emitEvent)
 	if err != nil {
-		log.Printf("StartUSBCamera: relay failed for %q: %v", sourceID, err)
-		a.mu.Lock()
+		log.Printf("StartUSBCamera: relay failed for %q (%q): %v", sourceID, displayName, err)
 		delete(a.usbRelays, sourceID)
-		a.mu.Unlock()
 		return 0, fmt.Errorf("start USB camera for %q: %w", sourceID, err)
 	}
 	log.Printf("StartUSBCamera: relay for %q listening on port %d", sourceID, port)

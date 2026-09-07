@@ -10,11 +10,12 @@ import (
 
 // Source represents a configured camera or RTSP stream source.
 type Source struct {
-	ID        string `json:"id"`
-	Type      string `json:"type"` // "usb" or "rtsp"
-	Name      string `json:"name"`
-	URL       string `json:"url,omitempty"`
-	IsDefault bool   `json:"isDefault"`
+	ID          string `json:"id"`
+	Type        string `json:"type"` // "usb" or "rtsp"
+	Name        string `json:"name"`
+	DisplayName string `json:"displayName,omitempty"`
+	URL         string `json:"url,omitempty"`
+	IsDefault   bool   `json:"isDefault"`
 }
 
 // Config is the root configuration persisted to disk.

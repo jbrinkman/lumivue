@@ -25,7 +25,7 @@ func TestConfigManager_LoadSave(t *testing.T) {
 	// Save and reload.
 	want := Config{
 		Sources: []Source{
-			{ID: "usb:abc", Type: "usb", Name: "Logitech", IsDefault: true},
+			{ID: "usb:abc", Type: "usb", Name: "Logitech", DisplayName: "Desk Camera", IsDefault: true},
 			{ID: "rtsp://cam1", Type: "rtsp", Name: "Back Cam", URL: "rtsp://cam1"},
 		},
 		LastMonitorIndex: 1,
@@ -45,6 +45,9 @@ func TestConfigManager_LoadSave(t *testing.T) {
 	}
 	if got.Sources[0].ID != "usb:abc" {
 		t.Errorf("unexpected source ID: %s", got.Sources[0].ID)
+	}
+	if got.Sources[0].DisplayName != "Desk Camera" {
+		t.Errorf("unexpected source display name: %s", got.Sources[0].DisplayName)
 	}
 	if got.LastMonitorIndex != 1 {
 		t.Errorf("expected LastMonitorIndex=1, got %d", got.LastMonitorIndex)

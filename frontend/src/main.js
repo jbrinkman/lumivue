@@ -88,13 +88,15 @@ async function initMain() {
     if (src.type === 'usb') {
       try {
         usbImg.classList.add('active');
-        await playUSBCamera(usbImg, src.id, src.name, onUSBCameraStatus);
+        await playUSBCamera(usbImg, src.id, src.displayName || src.name, onUSBCameraStatus);
       } catch (err) {
         usbImg.classList.remove('active');
         const { title, hint } = getCameraErrorMessage(err);
+        showStatus('');
         showError({ title, hint });
         activeSource = null;
         refreshSidebar();
+        return;
       }
     } else if (src.type === 'rtsp') {
       rtspImg.classList.add('active');
@@ -203,13 +205,19 @@ async function initMain() {
 
   // ── Status / error display ───────────────────────────────────────────────
 
-  function onUSBCameraStatus(msg) {
+  async function onUSBCameraStatus(msg) {
     if (!msg) {
       showStatus('');
       return;
     }
     if (msg.startsWith('USB error:') || msg.startsWith('USB stream error')) {
+      const sourceId = msg.startsWith('USB error:') && activeSource?.type === 'usb' ? activeSource.id : null;
+      await stopUSBCamera(usbImg, sourceId).catch(() => {});
+      usbImg.classList.remove('active');
+      activeSource = null;
+      showStatus('');
       showError({ title: 'USB camera error', hint: msg.replace(/^USB error:\s*/, '') });
+      refreshSidebar();
     } else {
       showStatus(msg);
     }

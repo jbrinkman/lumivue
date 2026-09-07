@@ -52,8 +52,13 @@ export function initProjection() {
 
     if (src.type === 'usb') {
       try {
-        await playUSBCamera(usbImg, src.id, src.name, (msg) => {
+        await playUSBCamera(usbImg, src.id, src.displayName || src.name, (msg) => {
           if (msg) {
+            if (msg.startsWith('USB error:') || msg.startsWith('USB stream error')) {
+              const sourceId = msg.startsWith('USB error:') ? activeSourceId : null;
+              activeSourceId = null;
+              stopUSBCamera(usbImg, sourceId).catch(() => {});
+            }
             emptyEl.textContent = msg.replace(/^USB error:\s*/, '');
             emptyEl.style.display = 'block';
             usbImg.style.display = 'none';
@@ -64,6 +69,7 @@ export function initProjection() {
         });
       } catch (err) {
         const { title, hint } = getCameraErrorMessage(err);
+        activeSourceId = null;
         emptyEl.textContent = hint ? `${title}\n${hint}` : title;
         emptyEl.style.display = 'block';
         usbImg.style.display = 'none';

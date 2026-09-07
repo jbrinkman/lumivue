@@ -11,7 +11,8 @@ Switching to a previously renamed USB camera currently fails to start the stream
 - Fix the `USBCameraRelay` start/stop lifecycle:
   - Ensure `Stop` waits for the `captureLoop` goroutine to finish before freeing `decoderCtx` and `swsCtx`.
   - Guard `captureLoop` defers with nil checks before calling `Free()`.
-  - Make `Start` return an error and not leave a partially-initialized relay when `resolveUSBCamera` or `openDevice` fails.
+  - Make `Start` return an error and not leave a partially-initialized relay when `resolveUSBCamera` or the initial `openDevice` call fails.
+  - Emit failures that occur after streaming begins as `usb:error` events so the frontend stops and removes the failed camera display and shows an error notification without closing the application.
   - Prevent `StartUSBCamera` from starting a new relay while an old one for the same source is still shutting down.
 - Add tests for the rename resolution path and the relay stop/start lifecycle.
 

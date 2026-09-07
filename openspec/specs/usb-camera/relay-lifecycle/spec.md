@@ -1,8 +1,10 @@
+# USB Camera Relay Lifecycle Specification
+
 ## Purpose
 
 The USB camera relay must start and stop cleanly, release FFmpeg resources only after the capture goroutine has finished, and fail gracefully when the requested camera cannot be found or opened.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Relay stop does not race with the capture goroutine
 The system SHALL ensure that `USBCameraRelay.Stop()` waits for the `captureLoop` goroutine to exit before freeing any FFmpeg objects that the goroutine may still use.
@@ -32,5 +34,16 @@ The system SHALL return an error from `USBCameraRelay.Start` when device listing
 #### Scenario: Camera device cannot be opened
 - **WHEN** the resolved camera device fails to open (e.g., already in use or permission denied)
 - **THEN** `StartUSBCamera` returns an error to the frontend
-- **THEN** the error is also emitted as a `usb:error` event
-- **THEN** the application does not crash
+- **THEN** no capture goroutine or active relay is left behind
+- **THEN** the frontend removes any camera display and shows an error notification
+- **THEN** the application remains open
+
+### Requirement: Runtime camera failures remain contained
+The system SHALL report a failure that occurs after USB camera streaming begins without allowing the failure to panic or close the application.
+
+#### Scenario: Active camera stream fails
+- **WHEN** an active USB camera encounters a fatal capture error
+- **THEN** the backend emits a `usb:error` event for that source
+- **THEN** the frontend stops and removes the failed camera display
+- **THEN** the frontend shows an error notification
+- **THEN** the application remains open

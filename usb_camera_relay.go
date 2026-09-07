@@ -39,6 +39,7 @@ type USBCameraRelay struct {
 	// decoder state
 	decoderCtx *astiav.CodecContext
 	swsCtx     *astiav.SoftwareScaleContext
+	running    sync.WaitGroup
 
 	// openDevice is injectable for testing.
 	openDevice func(deviceIndex int) (*astiav.FormatContext, *astiav.Stream, error)
@@ -71,10 +72,23 @@ func (r *USBCameraRelay) Start(emitEvent func(name string, data any)) (int, erro
 		log.Printf("usb camera resolve error (source=%s, camera=%q): %v", r.sourceID, r.cameraName, err)
 		return 0, fmt.Errorf("resolve camera %q: %w", r.cameraName, err)
 	}
+	formatCtx, stream, err := r.openDevice(idx)
+	if err != nil {
+		return 0, fmt.Errorf("open camera: %w", err)
+	}
+	if formatCtx == nil || stream == nil {
+		if formatCtx != nil {
+			formatCtx.CloseInput()
+			formatCtx.Free()
+		}
+		return 0, fmt.Errorf("open camera: missing format context or video stream")
+	}
 
 	// Pick a free port and start the HTTP server.
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
+		formatCtx.CloseInput()
+		formatCtx.Free()
 		return 0, fmt.Errorf("listen: %w", err)
 	}
 	r.port = ln.Addr().(*net.TCPAddr).Port
@@ -89,7 +103,14 @@ func (r *USBCameraRelay) Start(emitEvent func(name string, data any)) (int, erro
 	}()
 
 	// Launch capture in a goroutine so Start can return the port immediately.
-	go r.capture(idx, emitEvent)
+	r.running.Add(1)
+	go func() {
+		defer r.running.Done()
+		if err := r.captureOpened(formatCtx, stream); err != nil {
+			log.Printf("usb camera capture error (source=%s): %v", r.sourceID, err)
+			r.emitError(err, emitEvent)
+		}
+	}()
 
 	return r.port, nil
 }
@@ -102,10 +123,7 @@ func (r *USBCameraRelay) Stop() {
 		defer cancel()
 		_ = r.server.Shutdown(ctx)
 	}
-	if r.decoderCtx != nil {
-		r.decoderCtx.Free()
-		r.decoderCtx = nil
-	}
+	r.running.Wait()
 	if r.swsCtx != nil {
 		r.swsCtx.Free()
 		r.swsCtx = nil
@@ -188,8 +206,16 @@ func (r *USBCameraRelay) captureLoop(deviceIndex int, emitEvent func(name string
 	if err != nil {
 		return fmt.Errorf("open camera: %w", err)
 	}
-	defer formatCtx.CloseInput()
-	defer formatCtx.Free()
+	return r.captureOpened(formatCtx, stream)
+}
+
+func (r *USBCameraRelay) captureOpened(formatCtx *astiav.FormatContext, stream *astiav.Stream) error {
+	defer func() {
+		if formatCtx != nil {
+			formatCtx.CloseInput()
+			formatCtx.Free()
+		}
+	}()
 
 	if stream.CodecParameters().MediaType() != astiav.MediaTypeVideo {
 		return fmt.Errorf("selected stream is not video")
@@ -204,6 +230,9 @@ func (r *USBCameraRelay) captureLoop(deviceIndex int, emitEvent func(name string
 			return fmt.Errorf("no decoder for codec %q", codecID.String())
 		}
 		r.decoderCtx = astiav.AllocCodecContext(decoder)
+		if r.decoderCtx == nil {
+			return fmt.Errorf("allocate decoder context")
+		}
 		if err := stream.CodecParameters().ToCodecContext(r.decoderCtx); err != nil {
 			return fmt.Errorf("copy codec parameters: %w", err)
 		}
@@ -211,15 +240,31 @@ func (r *USBCameraRelay) captureLoop(deviceIndex int, emitEvent func(name string
 			return fmt.Errorf("open decoder: %w", err)
 		}
 		defer func() {
-			r.decoderCtx.Free()
-			r.decoderCtx = nil
+			if r.decoderCtx != nil {
+				r.decoderCtx.Free()
+				r.decoderCtx = nil
+			}
 		}()
 	}
 
 	packet := astiav.AllocPacket()
-	defer packet.Free()
+	if packet == nil {
+		return fmt.Errorf("allocate packet")
+	}
+	defer func() {
+		if packet != nil {
+			packet.Free()
+		}
+	}()
 	frame := astiav.AllocFrame()
-	defer frame.Free()
+	if frame == nil {
+		return fmt.Errorf("allocate frame")
+	}
+	defer func() {
+		if frame != nil {
+			frame.Free()
+		}
+	}()
 
 	for {
 		select {
@@ -249,11 +294,12 @@ func (r *USBCameraRelay) captureLoop(deviceIndex int, emitEvent func(name string
 		if isMJPEG {
 			jpegData = bytes.Clone(packet.Data())
 		} else {
-			jpegData, err = r.decodePacket(packet, frame)
+			decoded, err := r.decodePacket(packet, frame)
 			if err != nil {
 				log.Printf("usb decode error (source=%s): %v", r.sourceID, err)
 				continue
 			}
+			jpegData = decoded
 		}
 
 		if len(jpegData) > 0 {
@@ -336,7 +382,14 @@ func decodeFrameToJPEG(frame *astiav.Frame, swsCtx *astiav.SoftwareScaleContext)
 	}
 
 	rgbaFrame := astiav.AllocFrame()
-	defer rgbaFrame.Free()
+	if rgbaFrame == nil {
+		return nil, swsCtx, fmt.Errorf("allocate RGBA frame")
+	}
+	defer func() {
+		if rgbaFrame != nil {
+			rgbaFrame.Free()
+		}
+	}()
 	rgbaFrame.SetWidth(w)
 	rgbaFrame.SetHeight(h)
 	rgbaFrame.SetPixelFormat(astiav.PixelFormatRgba)

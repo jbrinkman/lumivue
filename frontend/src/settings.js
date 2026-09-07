@@ -93,7 +93,7 @@ function buildUSBSection(usbDevices, savedUSB) {
   const savedRows = savedUSB.map((s) => `
     <div class="source-row">
       <div class="source-row-info">
-        <div class="source-row-name">${esc(s.name)}</div>
+        <div class="source-row-name">${esc(s.displayName || s.name)}</div>
       </div>
       <button class="text-btn" data-action="usb-rename" data-id="${escAttr(s.id)}">Rename</button>
       <button class="text-btn danger" data-action="usb-remove" data-id="${escAttr(s.id)}">Remove</button>
@@ -145,7 +145,7 @@ function startInlineRename(btn, cfg, onConfigChange) {
   const nameDiv = row.querySelector('.source-row-name');
 
   // Replace static name with an editable input.
-  const originalName = src.name;
+  const originalName = src.displayName || src.name;
   nameDiv.innerHTML =
     `<input class="inline-rename-input" type="text" value="${escAttr(originalName)}" />`;
   const input = nameDiv.querySelector('input');
@@ -171,15 +171,15 @@ async function commitRename(sourceId, newName, cfg, onConfigChange) {
   const sources = cfg.sources || [];
   if (!newName) return;
   const src = sources.find((s) => s.id === sourceId);
-  if (!src || newName === src.name) { await renderSettings(onConfigChange); return; }
-  const newCfg = { ...cfg, sources: sources.map((s) => s.id === sourceId ? { ...s, name: newName } : s) };
+  if (!src || newName === (src.displayName || src.name)) { await renderSettings(onConfigChange); return; }
+  const newCfg = { ...cfg, sources: sources.map((s) => s.id === sourceId ? { ...s, displayName: newName } : s) };
   await SaveConfig(newCfg);
   onConfigChange(newCfg);
   await renderSettings(onConfigChange);
 }
 
 function showRemoveConfirm(row, source, cfg, onConfigChange) {
-  const label = source.name || source.url || 'this source';
+  const label = source.displayName || source.name || source.url || 'this source';
   row.innerHTML = `
     <div class="source-row-info">
       <div class="source-row-name remove-confirm-text">Remove ${esc(label)}?</div>
@@ -229,7 +229,7 @@ function buildRTSPSection(rtspSources) {
   const rows = rtspSources.map((s) => `
     <div class="source-row">
       <div class="source-row-info">
-        <div class="source-row-name">${esc(s.name)}</div>
+        <div class="source-row-name">${esc(s.displayName || s.name)}</div>
         <div class="source-row-url">${esc(s.url)}</div>
       </div>
       <button class="text-btn" data-action="rtsp-edit" data-id="${escAttr(s.id)}">Edit</button>
