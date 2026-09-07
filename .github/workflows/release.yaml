@@ -36,8 +36,17 @@ jobs:
             package-lock.json
             frontend/package-lock.json
 
-      - name: Install Wails
-        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.16
+      - name: Install build tools
+        run: |
+          go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.16
+          go install github.com/go-task/task/v3/cmd/task@v3.53.1
+
+      - name: Install FFmpeg 8
+        run: |
+          brew update
+          brew install ffmpeg@8
+          echo "$(brew --prefix ffmpeg@8)/bin" >> "$GITHUB_PATH"
+          echo "PKG_CONFIG_PATH=$(brew --prefix ffmpeg@8)/lib/pkgconfig" >> "$GITHUB_ENV"
 
       - name: Install release dependencies
         run: npm ci

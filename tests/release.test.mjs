@@ -55,6 +55,11 @@ test('CD is manual, gated, serialized, and limited to release permissions', asyn
   assert.match(workflow, /ref: main/);
   assert.match(workflow, /fetch-depth: 0/);
   assert.match(workflow, /go install github\.com\/wailsapp\/wails\/v3\/cmd\/wails3@v3\.0\.0-beta\.16/);
+  assert.match(workflow, /go install github\.com\/go-task\/task\/v3\/cmd\/task@v3\.53\.1/);
+  assert.ok(workflow.indexOf('go-task/task') < workflow.indexOf('task check'));
+  assert.match(workflow, /brew install ffmpeg@8/);
+  assert.match(workflow, /PKG_CONFIG_PATH/);
+  assert.ok(workflow.indexOf('brew install ffmpeg@8') < workflow.indexOf('task check'));
   assert.match(workflow, /npm ci/);
   assert.doesNotMatch(workflow, /continue-on-error:/);
   assert.ok(workflow.indexOf('task check') < workflow.indexOf('npm run test:release'));
