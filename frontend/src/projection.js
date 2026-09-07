@@ -5,7 +5,7 @@
  * from the main window. It renders the same MJPEG feed fullscreen.
  */
 import { Events } from '@wailsio/runtime';
-import { StopProjection } from './bindings.js';
+import { GetConfig, StopProjection } from './bindings.js';
 import { playUSBCamera, stopUSBCamera, getCameraErrorMessage } from './camera.js';
 import { playRTSP, stopRTSP } from './rtsp.js';
 
@@ -14,6 +14,13 @@ import { playRTSP, stopRTSP } from './rtsp.js';
  * Called by main.js when mode=projection is detected.
  */
 export function initProjection() {
+  let receivedScalingEvent = false;
+  document.documentElement.dataset.videoScalingMode = 'cover';
+  GetConfig()
+    .then((cfg) => {
+      if (!receivedScalingEvent) document.documentElement.dataset.videoScalingMode = cfg.videoScalingMode;
+    })
+    .catch(() => {});
   document.getElementById('root').innerHTML = `
     <div class="projection-app">
       <img id="proj-usb-img" alt="" draggable="false" style="display:none" />
@@ -26,6 +33,14 @@ export function initProjection() {
   const emptyEl = document.getElementById('proj-empty');
 
   let activeSourceId = null;
+
+  Events.On('video-scaling:changed', (evt) => {
+    const mode = evt?.data;
+    if (mode === 'cover' || mode === 'contain') {
+      receivedScalingEvent = true;
+      document.documentElement.dataset.videoScalingMode = mode;
+    }
+  });
 
   // ESC key exits projection (triggers Stop from main window via event).
   document.addEventListener('keydown', (e) => {

@@ -22,6 +22,7 @@ type Source struct {
 type Config struct {
 	Sources          []Source `json:"sources"`
 	LastMonitorIndex int      `json:"lastMonitorIndex"`
+	VideoScalingMode string   `json:"videoScalingMode,omitempty"`
 }
 
 // ConfigManager handles reading and writing config to disk.
@@ -63,11 +64,21 @@ func (cm *ConfigManager) load() error {
 func (cm *ConfigManager) Load() Config {
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
-	return cm.cfg
+	cfg := cm.cfg
+	cfg.VideoScalingMode = normalizeVideoScalingMode(cfg.VideoScalingMode)
+	return cfg
+}
+
+func normalizeVideoScalingMode(mode string) string {
+	if mode == "contain" {
+		return mode
+	}
+	return "cover"
 }
 
 // Save persists the given config to disk and updates the in-memory copy.
 func (cm *ConfigManager) Save(cfg Config) error {
+	cfg.VideoScalingMode = normalizeVideoScalingMode(cfg.VideoScalingMode)
 	data, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal config: %w", err)

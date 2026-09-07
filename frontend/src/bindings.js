@@ -10,10 +10,10 @@ const PKG = 'main.AppService';
 // Call is a namespace; ByName(methodName, ...args) is the callable helper.
 const invoke = (method, ...args) => Call.ByName(`${PKG}.${method}`, ...args);
 
-/** @returns {Promise<{sources: Array, lastMonitorIndex: number}>} */
+/** @returns {Promise<{sources: Array, lastMonitorIndex: number, videoScalingMode: 'cover'|'contain'}>} */
 export const GetConfig = () => invoke('GetConfig');
 
-/** @param {{ sources: Array, lastMonitorIndex: number }} cfg */
+/** @param {{ sources: Array, lastMonitorIndex: number, videoScalingMode: 'cover'|'contain' }} cfg */
 export const SaveConfig = (cfg) => invoke('SaveConfig', cfg);
 
 /** @param {string} sourceId */

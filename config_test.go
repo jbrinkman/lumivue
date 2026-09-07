@@ -54,6 +54,33 @@ func TestConfigManager_LoadSave(t *testing.T) {
 	}
 }
 
+func TestConfigManager_VideoScalingModeDefaultsToCover(t *testing.T) {
+	for _, mode := range []string{"", "invalid"} {
+		cm := &ConfigManager{cfg: Config{VideoScalingMode: mode}}
+		if got := cm.Load().VideoScalingMode; got != "cover" {
+			t.Errorf("VideoScalingMode = %q, want cover", got)
+		}
+	}
+}
+
+func TestConfigManager_VideoScalingModeRoundTrip(t *testing.T) {
+	for _, mode := range []string{"cover", "contain"} {
+		t.Run(mode, func(t *testing.T) {
+			cm := &ConfigManager{path: filepath.Join(t.TempDir(), "config.json")}
+			if err := cm.Save(Config{VideoScalingMode: mode}); err != nil {
+				t.Fatalf("Save: %v", err)
+			}
+			loaded := &ConfigManager{path: cm.path}
+			if err := loaded.load(); err != nil {
+				t.Fatalf("load: %v", err)
+			}
+			if got := loaded.Load().VideoScalingMode; got != mode {
+				t.Errorf("VideoScalingMode = %q, want %q", got, mode)
+			}
+		})
+	}
+}
+
 func TestConfigManager_Save_Atomic(t *testing.T) {
 	dir := t.TempDir()
 	cm := &ConfigManager{path: filepath.Join(dir, "config.json")}

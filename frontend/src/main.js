@@ -40,13 +40,42 @@ async function initMain() {
   const errorHintEl = document.getElementById('error-state-hint');
   const statusEl = document.getElementById('status-overlay');
 
-  let cfg = await GetConfig().catch(() => ({ sources: [], lastMonitorIndex: 0 }));
+  let cfg = await GetConfig().catch(() => ({ sources: [], lastMonitorIndex: 0, videoScalingMode: 'cover' }));
   let activeSource = null;
   let isProjecting = false;
+
+  applyVideoScalingMode(cfg.videoScalingMode);
+  document.getElementById('video-scaling-btn').addEventListener('click', toggleVideoScalingMode);
 
   // Initial render.
   refreshSidebar();
   await refreshMonitorSelect();
+
+  function applyVideoScalingMode(mode) {
+    document.documentElement.dataset.videoScalingMode = mode;
+    const btn = document.getElementById('video-scaling-btn');
+    const label = mode === 'contain' ? 'Fit Inside' : 'Crop to Fill';
+    btn.textContent = `Scaling: ${label}`;
+    btn.setAttribute('aria-label', `Video scaling mode: ${label}`);
+    btn.setAttribute('aria-pressed', mode === 'contain' ? 'true' : 'false');
+  }
+
+  async function toggleVideoScalingMode() {
+    const btn = document.getElementById('video-scaling-btn');
+    const nextMode = cfg.videoScalingMode === 'contain' ? 'cover' : 'contain';
+    const newCfg = { ...cfg, videoScalingMode: nextMode };
+    btn.disabled = true;
+    try {
+      await SaveConfig(newCfg);
+      cfg = newCfg;
+      applyVideoScalingMode(nextMode);
+      Events.Emit('video-scaling:changed', nextMode);
+    } catch (err) {
+      showError({ title: 'Could not save video scaling mode.', hint: String(err) });
+    } finally {
+      btn.disabled = false;
+    }
+  }
 
   // ── Settings panel ──────────────────────────────────────────────────────
 
@@ -174,6 +203,7 @@ async function initMain() {
       btn.textContent = 'Stop Projection';
       btn.classList.add('projecting');
       if (statusSpan) statusSpan.textContent = 'Projecting';
+      Events.Emit('video-scaling:changed', cfg.videoScalingMode);
       // Send current source to projection window.
       if (activeSource) Events.Emit('source:changed', activeSource);
     }
@@ -285,6 +315,7 @@ function renderAppShell() {
       </div>
 
       <footer class="footer">
+        <button id="video-scaling-btn" class="text-btn" type="button"></button>
         <select id="monitor-select" class="monitor-select" title="Monitor for projection"></select>
         <button id="project-btn" class="project-btn">Project</button>
         <span id="projection-status" class="projection-status"></span>
