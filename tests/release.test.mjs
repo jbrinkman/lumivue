@@ -73,10 +73,10 @@ test('workflow actions use maintained Node 24 action majors', async () => {
   assert.doesNotMatch(workflows, /node-version: '20'/);
   const ci = await read('.github/workflows/ci.yaml');
   const testJob = ci.slice(ci.indexOf('  test:'), ci.indexOf('  build:'));
-  assert.match(testJob, /libgtk-4-dev/);
-  assert.match(testJob, /libwebkitgtk-6\.0-dev/);
-  assert.match(testJob, /libavcodec-dev/);
-  assert.ok(testJob.indexOf('apt-get install') < testJob.indexOf('go vet'));
+  assert.match(testJob, /runs-on: macos-15/);
+  assert.equal([...ci.matchAll(/runs-on: macos-15/g)].length, 2);
+  assert.equal([...ci.matchAll(/brew install ffmpeg/g)].length, 2);
+  assert.ok(testJob.indexOf('brew install ffmpeg') < testJob.indexOf('go vet'));
   assert.ok(testJob.indexOf('npm run build') < testJob.indexOf('go vet'));
   for (const [, action, version] of references) {
     assert.equal(version, 'v7', `${action} must use its Node 24 v7 release`);
