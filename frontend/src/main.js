@@ -32,7 +32,7 @@ if (params.get('mode') === 'projection') {
 async function initMain() {
   renderAppShell();
 
-  const videoEl = document.getElementById('usb-video');
+  const usbImg = document.getElementById('usb-img');
   const rtspImg = document.getElementById('rtsp-img');
   const emptyEl = document.getElementById('empty-state');
   const errorEl = document.getElementById('error-state');
@@ -40,13 +40,42 @@ async function initMain() {
   const errorHintEl = document.getElementById('error-state-hint');
   const statusEl = document.getElementById('status-overlay');
 
-  let cfg = await GetConfig().catch(() => ({ sources: [], lastMonitorIndex: 0 }));
+  let cfg = await GetConfig().catch(() => ({ sources: [], lastMonitorIndex: 0, videoScalingMode: 'cover' }));
   let activeSource = null;
   let isProjecting = false;
+
+  applyVideoScalingMode(cfg.videoScalingMode);
+  document.getElementById('video-scaling-btn').addEventListener('click', toggleVideoScalingMode);
 
   // Initial render.
   refreshSidebar();
   await refreshMonitorSelect();
+
+  function applyVideoScalingMode(mode) {
+    document.documentElement.dataset.videoScalingMode = mode;
+    const btn = document.getElementById('video-scaling-btn');
+    const label = mode === 'contain' ? 'Fit Inside' : 'Crop to Fill';
+    btn.textContent = `Scaling: ${label}`;
+    btn.setAttribute('aria-label', `Video scaling mode: ${label}`);
+    btn.setAttribute('aria-pressed', mode === 'contain' ? 'true' : 'false');
+  }
+
+  async function toggleVideoScalingMode() {
+    const btn = document.getElementById('video-scaling-btn');
+    const nextMode = cfg.videoScalingMode === 'contain' ? 'cover' : 'contain';
+    const newCfg = { ...cfg, videoScalingMode: nextMode };
+    btn.disabled = true;
+    try {
+      await SaveConfig(newCfg);
+      cfg = newCfg;
+      applyVideoScalingMode(nextMode);
+      Events.Emit('video-scaling:changed', nextMode);
+    } catch (err) {
+      showError({ title: 'Could not save video scaling mode.', hint: String(err) });
+    } finally {
+      btn.disabled = false;
+    }
+  }
 
   // ── Settings panel ──────────────────────────────────────────────────────
 
@@ -81,21 +110,22 @@ async function initMain() {
 
     showError('');
     showStatus('Connecting…');
-    videoEl.classList.remove('active');
+    usbImg.classList.remove('active');
     rtspImg.classList.remove('active');
     emptyEl.style.display = 'none';
 
     if (src.type === 'usb') {
-      const cameraName = src.id.replace(/^usb:/, '');
       try {
-        await playUSBCamera(videoEl, cameraName);
-        videoEl.classList.add('active');
-        showStatus('');
+        usbImg.classList.add('active');
+        await playUSBCamera(usbImg, src.id, src.displayName || src.name, onUSBCameraStatus);
       } catch (err) {
+        usbImg.classList.remove('active');
         const { title, hint } = getCameraErrorMessage(err);
+        showStatus('');
         showError({ title, hint });
         activeSource = null;
         refreshSidebar();
+        return;
       }
     } else if (src.type === 'rtsp') {
       rtspImg.classList.add('active');
@@ -110,8 +140,8 @@ async function initMain() {
     if (!activeSource) return;
     const prev = activeSource;
     activeSource = null;
-    stopUSBCamera(videoEl);
-    videoEl.classList.remove('active');
+    await stopUSBCamera(usbImg, prev.type === 'usb' ? prev.id : null).catch(() => {});
+    usbImg.classList.remove('active');
     await stopRTSP(rtspImg, prev.type === 'rtsp' ? prev.id : null).catch(() => {});
     rtspImg.classList.remove('active');
     showError('');
@@ -173,6 +203,7 @@ async function initMain() {
       btn.textContent = 'Stop Projection';
       btn.classList.add('projecting');
       if (statusSpan) statusSpan.textContent = 'Projecting';
+      Events.Emit('video-scaling:changed', cfg.videoScalingMode);
       // Send current source to projection window.
       if (activeSource) Events.Emit('source:changed', activeSource);
     }
@@ -203,6 +234,24 @@ async function initMain() {
   });
 
   // ── Status / error display ───────────────────────────────────────────────
+
+  async function onUSBCameraStatus(msg) {
+    if (!msg) {
+      showStatus('');
+      return;
+    }
+    if (msg.startsWith('USB error:') || msg.startsWith('USB stream error')) {
+      const sourceId = msg.startsWith('USB error:') && activeSource?.type === 'usb' ? activeSource.id : null;
+      await stopUSBCamera(usbImg, sourceId).catch(() => {});
+      usbImg.classList.remove('active');
+      activeSource = null;
+      showStatus('');
+      showError({ title: 'USB camera error', hint: msg.replace(/^USB error:\s*/, '') });
+      refreshSidebar();
+    } else {
+      showStatus(msg);
+    }
+  }
 
   let statusTimeout;
   function showStatus(msg) {
@@ -259,13 +308,14 @@ function renderAppShell() {
             <p id="error-state-msg" class="error-state-msg"></p>
             <p id="error-state-hint" class="error-state-hint" style="display:none"></p>
           </div>
-          <video id="usb-video" class="video-el" autoplay playsinline muted></video>
+          <img id="usb-img" class="video-el" alt="" draggable="false" />
           <img id="rtsp-img" class="video-el" alt="" draggable="false" />
           <div id="status-overlay" class="status-overlay"></div>
         </main>
       </div>
 
       <footer class="footer">
+        <button id="video-scaling-btn" class="text-btn" type="button"></button>
         <select id="monitor-select" class="monitor-select" title="Monitor for projection"></select>
         <button id="project-btn" class="project-btn">Project</button>
         <span id="projection-status" class="projection-status"></span>

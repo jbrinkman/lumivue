@@ -1,11 +1,11 @@
 schema: spec-driven
 
 context: |
-  Tech stack: Go 1.26 + Wails v2 desktop app, vanilla JS / Vite frontend (no UI framework).
+  Tech stack: Go 1.25 + Wails v3.0.0-beta.16 desktop app, vanilla JS / Vite frontend (no UI framework).
   Build and task runner: Taskfile (use `task <name>`).
   Key commands: `task fmt` (format), `task lint` (vet), `task test` (tests), `task check` (fmt+lint+test), `task build` (binary).
   Config storage: OS user-config dir via os.UserConfigDir() — ~/Library/Application Support/lumivue/ on macOS.
-  Go module: github.com/jbrinkman/lumivue. Wails v2.15.
+  Go module: github.com/jbrinkman/lumivue. Wails v3.0.0-beta.16.
 
 rules:
   tasks:

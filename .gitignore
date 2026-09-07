@@ -1,6 +1,11 @@
 build/bin
 frontend/dist
 frontend/node_modules
+/node_modules
+frontend/bindings
+.task
+/bin
+build/release
 
 # Go test coverage profiles
 *.out

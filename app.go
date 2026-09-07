@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os/exec"
 	"sync"
 
@@ -25,6 +26,7 @@ type AppService struct {
 	mu               sync.Mutex
 	config           *ConfigManager
 	relays           map[string]*RTSPRelay
+	usbRelays        map[string]*USBCameraRelay
 	projectionWindow *application.WebviewWindow
 }
 
@@ -32,7 +34,8 @@ type AppService struct {
 // ServiceStartup when the Wails application is ready.
 func NewAppService() *AppService {
 	return &AppService{
-		relays: make(map[string]*RTSPRelay),
+		relays:    make(map[string]*RTSPRelay),
+		usbRelays: make(map[string]*USBCameraRelay),
 	}
 }
 
@@ -53,7 +56,11 @@ func (a *AppService) ServiceShutdown() error {
 	for id := range a.relays {
 		a.relays[id].Stop()
 	}
+	for id := range a.usbRelays {
+		a.usbRelays[id].Stop()
+	}
 	a.relays = make(map[string]*RTSPRelay)
+	a.usbRelays = make(map[string]*USBCameraRelay)
 	return nil
 }
 
@@ -141,6 +148,67 @@ func (a *AppService) StopRTSPRelay(sourceID string) error {
 	}
 	relay.Stop()
 	delete(a.relays, sourceID)
+	return nil
+}
+
+// StartUSBCamera starts an AVFoundation→MJPEG relay for the source with the given ID.
+// Returns the localhost port on which the MJPEG stream is available.
+func (a *AppService) StartUSBCamera(sourceID string) (int, error) {
+	cfg := a.config.Load()
+	var src *Source
+	for i := range cfg.Sources {
+		if cfg.Sources[i].ID == sourceID && cfg.Sources[i].Type == "usb" {
+			src = &cfg.Sources[i]
+			break
+		}
+	}
+	if src == nil {
+		log.Printf("StartUSBCamera: source %q not found or not a USB source", sourceID)
+		return 0, fmt.Errorf("USB source %q not found", sourceID)
+	}
+
+	displayName := src.DisplayName
+	if displayName == "" {
+		displayName = src.Name
+	}
+
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.usbRelays == nil {
+		a.usbRelays = make(map[string]*USBCameraRelay)
+	}
+	if existing, ok := a.usbRelays[sourceID]; ok {
+		existing.Stop()
+		delete(a.usbRelays, sourceID)
+	}
+	relay := newUSBCameraRelay(sourceID, src.Name)
+	a.usbRelays[sourceID] = relay
+
+	log.Printf("StartUSBCamera: starting relay for %q camera %q", sourceID, displayName)
+	port, err := relay.Start(a.emitEvent)
+	if err != nil {
+		log.Printf("StartUSBCamera: relay failed for %q (%q): %v", sourceID, displayName, err)
+		delete(a.usbRelays, sourceID)
+		return 0, fmt.Errorf("start USB camera for %q: %w", sourceID, err)
+	}
+	log.Printf("StartUSBCamera: relay for %q listening on port %d", sourceID, port)
+	return port, nil
+}
+
+// StopUSBCamera stops the USB camera relay for the given source ID.
+func (a *AppService) StopUSBCamera(sourceID string) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.usbRelays == nil {
+		return nil
+	}
+	relay, ok := a.usbRelays[sourceID]
+	if !ok {
+		return nil // already stopped; not an error
+	}
+	log.Printf("StopUSBCamera: stopping relay for %q", sourceID)
+	relay.Stop()
+	delete(a.usbRelays, sourceID)
 	return nil
 }
 

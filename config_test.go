@@ -25,7 +25,7 @@ func TestConfigManager_LoadSave(t *testing.T) {
 	// Save and reload.
 	want := Config{
 		Sources: []Source{
-			{ID: "usb:abc", Type: "usb", Name: "Logitech", IsDefault: true},
+			{ID: "usb:abc", Type: "usb", Name: "Logitech", DisplayName: "Desk Camera", IsDefault: true},
 			{ID: "rtsp://cam1", Type: "rtsp", Name: "Back Cam", URL: "rtsp://cam1"},
 		},
 		LastMonitorIndex: 1,
@@ -46,8 +46,38 @@ func TestConfigManager_LoadSave(t *testing.T) {
 	if got.Sources[0].ID != "usb:abc" {
 		t.Errorf("unexpected source ID: %s", got.Sources[0].ID)
 	}
+	if got.Sources[0].DisplayName != "Desk Camera" {
+		t.Errorf("unexpected source display name: %s", got.Sources[0].DisplayName)
+	}
 	if got.LastMonitorIndex != 1 {
 		t.Errorf("expected LastMonitorIndex=1, got %d", got.LastMonitorIndex)
+	}
+}
+
+func TestConfigManager_VideoScalingModeDefaultsToCover(t *testing.T) {
+	for _, mode := range []string{"", "invalid"} {
+		cm := &ConfigManager{cfg: Config{VideoScalingMode: mode}}
+		if got := cm.Load().VideoScalingMode; got != "cover" {
+			t.Errorf("VideoScalingMode = %q, want cover", got)
+		}
+	}
+}
+
+func TestConfigManager_VideoScalingModeRoundTrip(t *testing.T) {
+	for _, mode := range []string{"cover", "contain"} {
+		t.Run(mode, func(t *testing.T) {
+			cm := &ConfigManager{path: filepath.Join(t.TempDir(), "config.json")}
+			if err := cm.Save(Config{VideoScalingMode: mode}); err != nil {
+				t.Fatalf("Save: %v", err)
+			}
+			loaded := &ConfigManager{path: cm.path}
+			if err := loaded.load(); err != nil {
+				t.Fatalf("load: %v", err)
+			}
+			if got := loaded.Load().VideoScalingMode; got != mode {
+				t.Errorf("VideoScalingMode = %q, want %q", got, mode)
+			}
+		})
 	}
 }
 

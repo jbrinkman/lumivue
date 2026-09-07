@@ -10,10 +10,10 @@ const PKG = 'main.AppService';
 // Call is a namespace; ByName(methodName, ...args) is the callable helper.
 const invoke = (method, ...args) => Call.ByName(`${PKG}.${method}`, ...args);
 
-/** @returns {Promise<{sources: Array, lastMonitorIndex: number}>} */
+/** @returns {Promise<{sources: Array, lastMonitorIndex: number, videoScalingMode: 'cover'|'contain'}>} */
 export const GetConfig = () => invoke('GetConfig');
 
-/** @param {{ sources: Array, lastMonitorIndex: number }} cfg */
+/** @param {{ sources: Array, lastMonitorIndex: number, videoScalingMode: 'cover'|'contain' }} cfg */
 export const SaveConfig = (cfg) => invoke('SaveConfig', cfg);
 
 /** @param {string} sourceId */
@@ -50,6 +50,19 @@ export const StopRTSPRelay = (sourceId) => invoke('StopRTSPRelay', sourceId);
  * @returns {Promise<string[]>}
  */
 export const GetUSBCameras = () => invoke('GetUSBCameras');
+
+/**
+ * Starts an AVFoundation→MJPEG relay for the given USB source ID.
+ * @param {string} sourceId
+ * @returns {Promise<number>} localhost port for the MJPEG stream
+ */
+export const StartUSBCamera = (sourceId) => invoke('StartUSBCamera', sourceId);
+
+/**
+ * Stops the USB camera relay for the given source ID.
+ * @param {string} sourceId
+ */
+export const StopUSBCamera = (sourceId) => invoke('StopUSBCamera', sourceId);
 
 /**
  * Returns the absolute path to the application log file.

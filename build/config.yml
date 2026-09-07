@@ -1,0 +1,10 @@
+version: '3'
+
+info:
+  companyName: "Joseph Brinkman"
+  productName: "Lumivue"
+  productIdentifier: "com.jbrinkman.lumivue"
+  description: "Desktop camera viewer"
+  copyright: "Copyright 2026, Joseph Brinkman"
+  comments: "Built using Wails"
+  version: "0.0.0"
