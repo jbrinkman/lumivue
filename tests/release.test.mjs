@@ -63,3 +63,15 @@ test('CD is manual, gated, serialized, and limited to release permissions', asyn
   assert.match(ci, /wails\/v3\/cmd\/wails3@v3\.0\.0-beta\.16/);
   assert.match(ci, /wails3 build/);
 });
+
+test('workflow actions use maintained Node 24 action majors', async () => {
+  const workflows = `${await read('.github/workflows/ci.yaml')}\n${await read('.github/workflows/release.yaml')}`;
+  const references = [...workflows.matchAll(/uses: (actions\/(?:checkout|setup-go|setup-node))@(v\d+)/g)];
+
+  assert.equal(references.length, 8);
+  assert.equal([...workflows.matchAll(/node-version: '24'/g)].length, 2);
+  assert.doesNotMatch(workflows, /node-version: '20'/);
+  for (const [, action, version] of references) {
+    assert.equal(version, 'v7', `${action} must use its Node 24 v7 release`);
+  }
+});
