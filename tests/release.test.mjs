@@ -75,6 +75,8 @@ test('workflow actions use maintained Node 24 action majors', async () => {
 
   assert.equal(references.length, 9);
   assert.equal([...workflows.matchAll(/node-version: '24'/g)].length, 3);
+  assert.equal([...workflows.matchAll(/go-version: '1\.25\.x'/g)].length, 3);
+  assert.doesNotMatch(workflows, /go-version-file:/);
   assert.doesNotMatch(workflows, /node-version: '20'/);
   const ci = await read('.github/workflows/ci.yaml');
   const testJob = ci.slice(ci.indexOf('  test:'), ci.indexOf('  build:'));
